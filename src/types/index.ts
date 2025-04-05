@@ -1,4 +1,3 @@
-
 export interface User {
   id: string;
   email: string;
@@ -9,6 +8,7 @@ export interface User {
 
 export interface Customer {
   id: string;
+  customer_id?: string; // Added customer_id field
   name: string;
   address: string;
   city: string;
