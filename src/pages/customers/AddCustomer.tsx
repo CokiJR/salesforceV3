@@ -183,6 +183,7 @@ export default function AddCustomer() {
       // Create a customerData object with the shape expected by Supabase
       // Important: data is already validated by Zod so all required fields are present
       const customerData = {
+        id: crypto.randomUUID(), // Explicitly generate a UUID for the primary key
         customer_id: data.customer_id,
         name: data.name,
         contact_person: data.contact_person,
@@ -192,10 +193,6 @@ export default function AddCustomer() {
         city: data.city,
         status: data.status,
         cycle: data.cycle,
-        bank_name: data.bank_name,
-        bank_branch: data.bank_branch,
-        account_number: data.account_number,
-        account_holder_name: data.account_holder_name,
         payment_term: data.payment_term,
         created_at: new Date().toISOString(),
       };
@@ -206,6 +203,34 @@ export default function AddCustomer() {
         .insert(customerData)
         .select()
         .single();
+        
+      // If customer is created successfully, create bank account
+      if (newCustomer) {
+        // Create bank account data
+        const bankAccountData = {
+          bank_name: data.bank_name,
+          bank_branch: data.bank_branch,
+          account_number: data.account_number,
+          account_holder_name: data.account_holder_name,
+          customer_id: newCustomer.id,
+          created_at: new Date().toISOString(),
+        };
+        
+        // Insert bank account data
+        const { error: bankError } = await supabase
+          .from("bank_accounts")
+          .insert(bankAccountData);
+          
+        if (bankError) {
+          console.error("Error adding bank account:", bankError.message);
+          // We don't throw here to avoid preventing customer creation if bank account fails
+          toast({
+            variant: "warning",
+            title: "Warning",
+            description: `Customer created but bank account details could not be saved: ${bankError.message}`,
+          });
+        }
+      }
 
       if (error) throw error;
 
