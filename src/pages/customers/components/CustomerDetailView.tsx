@@ -6,6 +6,7 @@ import { CustomerHeader } from './CustomerHeader';
 import { CustomerInfo } from './CustomerInfo';
 import { CustomerOrdersList } from './CustomerOrdersList';
 import { CustomerVisitsList } from './CustomerVisitsList';
+import { CustomerBankAccounts } from './CustomerBankAccounts';
 import { Customer } from '@/types';
 import { getCycleDescription } from '../utils/CustomerCycles';
 
@@ -36,6 +37,7 @@ export function CustomerDetailView({ customer, isLoading = false }: CustomerDeta
         <div className="flex justify-between items-center">
           <TabsList>
             <TabsTrigger value="info">Information</TabsTrigger>
+            <TabsTrigger value="bank_accounts">Bank Accounts</TabsTrigger>
             <TabsTrigger value="orders">Orders</TabsTrigger>
             <TabsTrigger value="visits">Visits</TabsTrigger>
           </TabsList>
@@ -73,6 +75,12 @@ export function CustomerDetailView({ customer, isLoading = false }: CustomerDeta
           <CustomerInfo 
             customer={customer} 
             getCycleDescription={getCycleDescription} 
+          />
+        </TabsContent>
+        
+        <TabsContent value="bank_accounts" className="mt-0">
+          <CustomerBankAccounts 
+            customer={customer} 
           />
         </TabsContent>
         

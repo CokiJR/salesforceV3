@@ -12,9 +12,12 @@ import {
   UserPlus,
   Calendar,
   CreditCard,
+  Loader2,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { BankAccount } from "@/types";
+import { BankAccountInputs } from "./components/BankAccountInputs";
 
 import {
   Card,
@@ -45,6 +48,13 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// Define bank account schema
+const bankAccountSchema = z.object({
+  bank_name: z.string().min(1, { message: "Bank name is required" }),
+  account_number: z.string().min(1, { message: "Account number is required" }),
+  account_holder_name: z.string().optional(),
+});
+
 // Define the validation schema
 const customerSchema = z.object({
   customer_id: z
@@ -68,14 +78,11 @@ const customerSchema = z.object({
   cycle: z.enum(["YYYY", "YTYT", "TYTY"], {
     message: "Please select a valid visit cycle",
   }),
-  bank_name: z.string().min(2, { message: "Bank name is required" }),
-  bank_branch: z.string().optional(),
-  account_number: z.string().min(5, { message: "Account number is required" }),
-  account_holder_name: z
-    .string()
-    .min(2, { message: "Account holder name is required" }),
   payment_term: z.string().min(1, { message: "Payment term is required" }),
+  // Bank accounts array
+  bank_accounts: z.array(bankAccountSchema).optional().default([]),
 });
+
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
@@ -93,11 +100,8 @@ export default function AddCustomer() {
     customer_id: "",
     status: "active",
     cycle: "YYYY",
-    bank_name: "",
-    bank_branch: "",
-    account_number: "",
-    account_holder_name: "",
     payment_term: "",
+    bank_accounts: [],
   };
 
   const form = useForm<CustomerFormValues>({
@@ -170,6 +174,8 @@ export default function AddCustomer() {
     }
   };
 
+
+
   // Generate customer ID and fetch payment terms on component mount
   useEffect(() => {
     generateCustomerId();
@@ -180,10 +186,24 @@ export default function AddCustomer() {
     try {
       setIsSubmitting(true);
 
-      // Create a customerData object with the shape expected by Supabase
-      // Important: data is already validated by Zod so all required fields are present
+      // VALIDASI: Validasi bank accounts jika ada yang disediakan
+      if (data.bank_accounts && data.bank_accounts.length > 0) {
+        for (const bankAccount of data.bank_accounts) {
+          if (bankAccount.bank_name && !bankAccount.account_number) {
+            toast({
+              variant: "destructive",
+              title: "Validasi Error",
+              description: "Silakan pilih nomor rekening untuk setiap bank yang Anda tambahkan.",
+            });
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      }
+
+      // LANGKAH 1: Buat objek customerData dengan format yang diharapkan oleh Supabase
       const customerData = {
-        id: crypto.randomUUID(), // Explicitly generate a UUID for the primary key
+        id: crypto.randomUUID(), // Generate UUID untuk primary key
         customer_id: data.customer_id,
         name: data.name,
         contact_person: data.contact_person,
@@ -197,56 +217,101 @@ export default function AddCustomer() {
         created_at: new Date().toISOString(),
       };
 
-      // Now the customerData has all required fields explicitly defined
-      const { data: newCustomer, error } = await supabase
+      // LANGKAH 2: Simpan data customer ke tabel customers
+      console.log("Menyimpan data customer...");
+      const { data: newCustomer, error: customerError } = await supabase
         .from("customers")
         .insert(customerData)
         .select()
         .single();
+
+      // Jika gagal menyimpan data customer, tampilkan error dan batalkan proses
+      if (customerError) {
+        throw new Error(`Gagal membuat customer: ${customerError.message}`);
+      }
+
+      if (!newCustomer) {
+        throw new Error("Gagal membuat customer: Tidak ada data yang dikembalikan");
+      }
+
+      // LANGKAH 3: Dapatkan customer_uuid dari response
+      const customer_uuid = newCustomer.id;
+      console.log("Customer berhasil disimpan dengan UUID:", customer_uuid);
+      
+      // Pastikan customer_uuid tidak null saat menyimpan ke customer_bank_accounts
+      if (!customer_uuid) {
+        throw new Error("UUID Customer tidak ditemukan. Tidak dapat menghubungkan rekening bank.");
+      }
+
+      let bankAccountsLinked = 0;
+
+      // LANGKAH 4: Gunakan customer_uuid untuk menyimpan data ke tabel customer_bank_accounts
+      if (data.bank_accounts && data.bank_accounts.length > 0) {
+        console.log("Menyimpan data rekening bank...");
+        // Buat array untuk menyimpan semua relasi rekening bank
+        const bankAccountRelationships = [];
         
-      // If customer is created successfully, create bank account
-      if (newCustomer) {
-        // Create bank account data
-        const bankAccountData = {
-          bank_name: data.bank_name,
-          bank_branch: data.bank_branch,
-          account_number: data.account_number,
-          account_holder_name: data.account_holder_name,
-          customer_id: newCustomer.id,
-          created_at: new Date().toISOString(),
-        };
-        
-        // Insert bank account data
-        const { error: bankError } = await supabase
-          .from("bank_accounts")
-          .insert(bankAccountData);
+        for (const bankAccount of data.bank_accounts) {
+          // Lewati rekening bank yang kosong
+          if (!bankAccount.bank_name || !bankAccount.account_number) continue;
           
-        if (bankError) {
-          console.error("Error adding bank account:", bankError.message);
-          // We don't throw here to avoid preventing customer creation if bank account fails
-          toast({
-            variant: "warning",
-            title: "Warning",
-            description: `Customer created but bank account details could not be saved: ${bankError.message}`,
+          // Cari ID rekening bank
+          console.log(`Mencari rekening bank: ${bankAccount.bank_name} - ${bankAccount.account_number}`);
+          const { data: bankAccountData, error: bankAccountError } = await supabase
+            .from("bank_accounts")
+            .select("id")
+            .eq("bank_name", bankAccount.bank_name)
+            .eq("account_number", bankAccount.account_number)
+            .single();
+            
+          if (bankAccountError) {
+            throw new Error(`Gagal menemukan rekening bank: ${bankAccountError.message}`);
+          }
+          
+          if (!bankAccountData) {
+            throw new Error("Rekening bank yang dipilih tidak ditemukan");
+          }
+          
+          // Tambahkan ke array relasi dengan customer_uuid
+          bankAccountRelationships.push({
+            customer_id: customer_uuid, // Gunakan customer_uuid dari langkah 3
+            bank_account_id: bankAccountData.id,
+            created_at: new Date().toISOString(),
           });
+        }
+        
+        // Simpan semua relasi sekaligus
+        if (bankAccountRelationships.length > 0) {
+          console.log(`Menyimpan ${bankAccountRelationships.length} relasi rekening bank...`);
+          const { error: relationError } = await supabase
+            .from("customer_bank_accounts")
+            .insert(bankAccountRelationships);
+  
+          if (relationError) {
+            // Jika gagal menyimpan relasi rekening bank, tampilkan error
+            // Catatan: Supabase tidak mendukung transaksi sejati, jadi kita tidak bisa dengan mudah rollback customer
+            throw new Error(`Gagal menghubungkan rekening bank: ${relationError.message}`);
+          }
+          
+          bankAccountsLinked = bankAccountRelationships.length;
+          console.log(`${bankAccountsLinked} rekening bank berhasil dihubungkan`);
         }
       }
 
-      if (error) throw error;
-
+      // Jika sampai di sini, berarti semua proses berhasil
       toast({
-        title: "Customer added successfully",
-        description: `${data.name} has been added to your customers.`,
+        title: "Customer berhasil ditambahkan",
+        description: `${data.name} telah ditambahkan ke daftar customer Anda${bankAccountsLinked > 0 ? ` dengan ${bankAccountsLinked} rekening bank` : ''}.`,
       });
 
-      // Navigate back to customers list
+      // Navigasi kembali ke daftar customer
       navigate("/dashboard/customers");
     } catch (error: any) {
-      console.error("Error adding customer:", error.message);
+      console.error("Error menambahkan customer:", error.message);
       toast({
         variant: "destructive",
         title: "Error",
-        description: `Failed to add customer: ${error.message}`,
+        description: `${error.message}`,
       });
     } finally {
       setIsSubmitting(false);
@@ -381,103 +446,20 @@ export default function AddCustomer() {
                     )}
                   />
                 </div>
-
-                <Card className="p-4 border-dashed">
-                  <CardHeader className="px-0 pt-0">
-                    <CardTitle className="text-lg">
-                      Bank Account Information
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent className="px-0 pb-0">
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                      <FormField
-                        control={form.control}
-                        name="bank_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bank Name *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                  className="pl-10"
-                                  placeholder="Enter bank name"
-                                  {...field}
-                                />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="bank_branch"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Bank Branch</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <Building className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                  className="pl-10"
-                                  placeholder="Enter bank branch (optional)"
-                                  {...field}
-                                />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mt-4">
-                      <FormField
-                        control={form.control}
-                        name="account_number"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Account Number *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <CreditCard className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                  className="pl-10"
-                                  placeholder="Enter account number"
-                                  {...field}
-                                />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-
-                      <FormField
-                        control={form.control}
-                        name="account_holder_name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Account Holder Name *</FormLabel>
-                            <FormControl>
-                              <div className="relative">
-                                <User className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                                <Input
-                                  className="pl-10"
-                                  placeholder="Enter account holder name"
-                                  {...field}
-                                />
-                              </div>
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
+                
+                {/* Bank Account Section */}
+                <div className="mt-6">
+                  <FormField
+                    control={form.control}
+                    name="bank_accounts"
+                    render={() => (
+                      <FormItem>
+                        <BankAccountInputs control={form.control} name="bank_accounts" />
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
 
                 <FormField
                   control={form.control}
@@ -646,7 +628,7 @@ export default function AddCustomer() {
                 />
               </div>
 
-              <CardFooter className="flex justify-between px-0 pt-4">
+              <CardFooter className="flex justify-between border-t pt-5">
                 <Button
                   type="button"
                   variant="outline"
@@ -658,14 +640,11 @@ export default function AddCustomer() {
                 <Button type="submit" disabled={isSubmitting}>
                   {isSubmitting ? (
                     <>
-                      <span className="mr-2">Saving...</span>
-                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Saving...
                     </>
                   ) : (
-                    <>
-                      <UserPlus className="mr-2 h-4 w-4" />
-                      Add Customer
-                    </>
+                    "Add Customer"
                   )}
                 </Button>
               </CardFooter>

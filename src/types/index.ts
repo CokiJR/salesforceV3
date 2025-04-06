@@ -6,6 +6,22 @@ export interface User {
   created_at: string;
 }
 
+export interface BankAccount {
+  id: string;
+  bank_name: string;
+  account_number: string;
+  account_holder_name: string;
+  customer_id?: string;
+  created_at: string;
+}
+
+export interface CustomerBankAccount {
+  id: string;
+  customer_id: string;
+  bank_account_id: string;
+  created_at: string;
+}
+
 export interface Customer {
   id: string;
   customer_id?: string; // Added customer_id field
@@ -20,9 +36,10 @@ export interface Customer {
   created_at: string;
   location?: { lat: number; lng: number };
   due_date?: string; // Date when payment is due
-  bank_account?: string; // Bank account for payment validation
+  bank_account?: string; // Bank account for payment validation (legacy field)
   payment_term?: string; // Payment term code
   payment_term_description?: string; // Description of payment term
+  bank_accounts?: BankAccount[]; // Array of bank accounts
 }
 
 export interface Product {

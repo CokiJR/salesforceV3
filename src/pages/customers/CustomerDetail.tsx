@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams } from "react-router-dom";
-import { Customer } from "@/types";
+import { Customer, BankAccount } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { CustomerDetailView } from "./components/CustomerDetailView";
@@ -36,6 +36,38 @@ const CustomerDetail = () => {
           } : undefined
         };
         
+        // Fetch bank accounts for this customer
+        const fetchBankAccounts = async () => {
+          try {
+            // First get the relationships from customer_bank_accounts
+            const { data: relationships, error: relError } = await supabase
+              .from("customer_bank_accounts")
+              .select("bank_account_id")
+              .eq("customer_id", typedCustomer.id);
+            
+            if (relError) throw relError;
+            
+            if (relationships && relationships.length > 0) {
+              // Get all bank account IDs
+              const bankAccountIds = relationships.map(rel => rel.bank_account_id);
+              
+              // Fetch the actual bank accounts
+              const { data: accounts, error: accError } = await supabase
+                .from("bank_accounts")
+                .select("*")
+                .in("id", bankAccountIds);
+                
+              if (accError) throw accError;
+              
+              // Add bank accounts to customer object
+              typedCustomer.bank_accounts = accounts || [];
+            }
+          } catch (error: any) {
+            console.error("Error fetching bank accounts:", error.message);
+          }
+        };
+        
+        await fetchBankAccounts();
         setCustomer(typedCustomer);
       } catch (error: any) {
         console.error("Error fetching customer:", error.message);
