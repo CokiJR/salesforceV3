@@ -283,109 +283,153 @@ const EditCustomer = () => {
 
       // Handle bank accounts
       if (values.bank_accounts && values.bank_accounts.length > 0) {
-        // First, delete existing relationships
-        let deleteError = null;
-        const { error } = await supabase
-          .from("customer_bank_accounts")
-          .delete()
-          .eq("customer_uuid", customer.id);
+        try {
+          // First, get existing relationships to avoid deleting them all
+          const { data: existingRelationships, error: fetchError } =
+            await supabase
+              .from("customer_bank_accounts")
+              .select("bank_account_id")
+              .eq("customer_uuid", customer.id);
 
-        deleteError = error;
-        if (deleteError) throw deleteError;
+          if (fetchError) throw fetchError;
 
-        // Then create new relationships
-        const relationships = await Promise.all(
-          values.bank_accounts.map(async (account) => {
-            // If the account has no ID, it's a new account that needs to be created
-            if (!account.id) {
-              // Check if account with this number already exists
-              const { data: existingAccount, error: checkError } =
-                await supabase
-                  .from("bank_accounts")
-                  .select("id")
-                  .eq("account_number", account.account_number)
-                  .maybeSingle();
+          // Create a set of existing bank account IDs for quick lookup
+          const existingBankAccountIds = new Set(
+            existingRelationships?.map((rel) => rel.bank_account_id) || [],
+          );
 
-              if (checkError) throw checkError;
+          // Process each bank account
+          const relationships = await Promise.all(
+            values.bank_accounts.map(async (account) => {
+              // If the account has no ID, it's a new account that needs to be created
+              if (!account.id) {
+                // Check if account with this number already exists
+                const { data: existingAccount, error: checkError } =
+                  await supabase
+                    .from("bank_accounts")
+                    .select("id, bank_name, account_holder_name")
+                    .eq("account_number", account.account_number)
+                    .maybeSingle();
 
-              // If account already exists, use that instead of creating a new one
-              if (existingAccount) {
-                // Update the existing account with new details
-                const { error: updateError } = await supabase
-                  .from("bank_accounts")
-                  .update({
-                    bank_name: account.bank_name,
-                    account_holder_name: account.account_holder_name,
-                  })
-                  .eq("id", existingAccount.id);
+                if (checkError) throw checkError;
 
-                if (updateError) throw updateError;
+                // If account already exists, use that instead of creating a new one
+                if (existingAccount) {
+                  // Update the existing account with new details if needed
+                  if (
+                    existingAccount.bank_name !== account.bank_name ||
+                    existingAccount.account_holder_name !==
+                      account.account_holder_name
+                  ) {
+                    const { error: updateError } = await supabase
+                      .from("bank_accounts")
+                      .update({
+                        bank_name: account.bank_name,
+                        account_holder_name: account.account_holder_name,
+                      })
+                      .eq("id", existingAccount.id);
+
+                    if (updateError) throw updateError;
+                  }
+
+                  // Remove from existing set if it's already linked
+                  existingBankAccountIds.delete(existingAccount.id);
+
+                  return {
+                    customer_uuid: customer.id,
+                    customer_id: customer.customer_id,
+                    bank_account_id: existingAccount.id,
+                    already_exists: existingBankAccountIds.has(
+                      existingAccount.id,
+                    ),
+                  };
+                } else {
+                  // Create new account if it doesn't exist
+                  const { data, error } = await supabase
+                    .from("bank_accounts")
+                    .insert({
+                      id: crypto.randomUUID(), // Explicitly set UUID
+                      bank_name: account.bank_name,
+                      account_number: account.account_number,
+                      account_holder_name: account.account_holder_name,
+                      created_at: new Date().toISOString(),
+                    })
+                    .select();
+
+                  if (error) throw error;
+                  if (data && data[0]) {
+                    return {
+                      customer_uuid: customer.id,
+                      customer_id: customer.customer_id,
+                      bank_account_id: data[0].id,
+                      already_exists: false,
+                    };
+                  }
+                  return null;
+                }
+              } else {
+                // If the account has an ID, check if relationship already exists
+                const alreadyExists = existingBankAccountIds.has(account.id);
+
+                // Remove from existing set to mark as processed
+                existingBankAccountIds.delete(account.id);
 
                 return {
                   customer_uuid: customer.id,
                   customer_id: customer.customer_id,
-                  bank_account_id: existingAccount.id,
+                  bank_account_id: account.id,
+                  already_exists: alreadyExists,
                 };
-              } else {
-                // Create new account if it doesn't exist
-                const { data, error } = await supabase
-                  .from("bank_accounts")
-                  .insert({
-                    bank_name: account.bank_name,
-                    account_number: account.account_number,
-                    account_holder_name: account.account_holder_name,
-                  })
-                  .select();
-
-                if (error) throw error;
-                if (data && data[0]) {
-                  return {
-                    customer_uuid: customer.id,
-                    customer_id: customer.customer_id,
-                    bank_account_id: data[0].id,
-                  };
-                }
-                return null;
               }
-            } else {
-              // If the account has an ID, just create the relationship
-              return {
-                customer_uuid: customer.id,
-                customer_id: customer.customer_id,
-                bank_account_id: account.id,
-              };
-            }
-          }),
-        );
+            }),
+          );
 
-        // Filter out any null relationships
-        const validRelationships = relationships.filter((rel) => rel !== null);
-
-        if (validRelationships.length > 0) {
-          // Use the correct column names as defined in the migration file
-          const relationshipsWithCorrectColumns = validRelationships.map(
-            (rel) => ({
+          // Filter out any null relationships and those that already exist
+          const newRelationships = relationships
+            .filter((rel) => rel !== null && !rel.already_exists)
+            .map((rel) => ({
               customer_uuid: rel.customer_uuid,
               customer_id: rel.customer_id,
               bank_account_id: rel.bank_account_id,
               created_at: new Date().toISOString(),
-            }),
-          );
+            }));
 
-          // Debug the data being inserted
-          console.log(
-            "Inserting relationships:",
-            relationshipsWithCorrectColumns,
-          );
+          // Insert new relationships if any
+          if (newRelationships.length > 0) {
+            console.log("Inserting new relationships:", newRelationships);
 
-          const { error: relError } = await supabase
-            .from("customer_bank_accounts")
-            .insert(relationshipsWithCorrectColumns);
+            const { error: insertError } = await supabase
+              .from("customer_bank_accounts")
+              .insert(newRelationships);
 
-          if (relError) {
-            console.error("Error inserting relationships:", relError);
-            throw relError;
+            if (insertError) {
+              console.error("Error inserting relationships:", insertError);
+              throw insertError;
+            }
           }
+
+          // Delete relationships that are no longer needed
+          if (existingBankAccountIds.size > 0) {
+            const idsToDelete = Array.from(existingBankAccountIds);
+            console.log(
+              "Deleting old relationships for bank accounts:",
+              idsToDelete,
+            );
+
+            const { error: deleteError } = await supabase
+              .from("customer_bank_accounts")
+              .delete()
+              .eq("customer_uuid", customer.id)
+              .in("bank_account_id", idsToDelete);
+
+            if (deleteError) {
+              console.error("Error deleting old relationships:", deleteError);
+              throw deleteError;
+            }
+          }
+        } catch (error) {
+          console.error("Error managing bank accounts:", error);
+          throw error;
         }
       }
 

@@ -1,6 +1,13 @@
 import { useState, useEffect } from "react";
 import { useFieldArray, Control } from "react-hook-form";
-import { Building, CreditCard, User, Plus, Trash2, Loader2 } from "lucide-react";
+import {
+  Building,
+  CreditCard,
+  User,
+  Plus,
+  Trash2,
+  Loader2,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,14 +73,16 @@ export function BankAccountInputs({ control, name }: BankAccountInputsProps) {
         });
 
         // Convert to array of bank options
-        const options: BankOption[] = Object.keys(groupedByBank).map((bankName) => ({
-          name: bankName,
-          accounts: groupedByBank[bankName].map((account) => ({
-            id: account.id,
-            account_number: account.account_number,
-            account_holder_name: account.account_holder_name,
-          })),
-        }));
+        const options: BankOption[] = Object.keys(groupedByBank).map(
+          (bankName) => ({
+            name: bankName,
+            accounts: groupedByBank[bankName].map((account) => ({
+              id: account.id,
+              account_number: account.account_number,
+              account_holder_name: account.account_holder_name,
+            })),
+          }),
+        );
 
         setBankOptions(options);
       } catch (error: any) {
@@ -91,6 +100,7 @@ export function BankAccountInputs({ control, name }: BankAccountInputsProps) {
       bank_name: "",
       account_number: "",
       account_holder_name: "",
+      id: undefined, // Ensure ID is undefined for new accounts
     });
   };
 
@@ -106,20 +116,21 @@ export function BankAccountInputs({ control, name }: BankAccountInputsProps) {
   const handleAccountNumberChange = (value: string, index: number) => {
     // Find the selected bank
     const selectedBank = bankOptions.find(
-      (bank) => bank.name === fields[index].bank_name
+      (bank) => bank.name === fields[index].bank_name,
     );
 
     if (selectedBank) {
       // Find the selected account
       const selectedAccount = selectedBank.accounts.find(
-        (account) => account.account_number === value
+        (account) => account.account_number === value,
       );
 
       if (selectedAccount) {
-        // Update the account number and holder name
+        // Update the account number, holder name, and ID
         const currentField = { ...fields[index] };
         currentField.account_number = value;
         currentField.account_holder_name = selectedAccount.account_holder_name;
+        currentField.id = selectedAccount.id; // Set the ID from the existing account
         update(index, currentField);
       }
     }
@@ -166,7 +177,7 @@ export function BankAccountInputs({ control, name }: BankAccountInputsProps) {
                 <Trash2 className="h-4 w-4 text-destructive" />
               </Button>
             </div>
-            
+
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 mb-4">
               <FormField
                 control={control}
@@ -225,22 +236,27 @@ export function BankAccountInputs({ control, name }: BankAccountInputsProps) {
                         </div>
                       </FormControl>
                       <SelectContent>
-                        {fields[index].bank_name && (
+                        {fields[index].bank_name &&
                           bankOptions
-                            .find(bank => bank.name === fields[index].bank_name)?.accounts
-                            .map(account => (
-                              <SelectItem key={account.account_number} value={account.account_number}>
+                            .find(
+                              (bank) => bank.name === fields[index].bank_name,
+                            )
+                            ?.accounts.map((account) => (
+                              <SelectItem
+                                key={account.account_number}
+                                value={account.account_number}
+                              >
                                 {account.account_number}
                               </SelectItem>
-                            ))
-                        )}
-                        {fields[index].bank_name && 
-                          bankOptions.find(bank => bank.name === fields[index].bank_name)?.accounts.length === 0 && (
+                            ))}
+                        {fields[index].bank_name &&
+                          bankOptions.find(
+                            (bank) => bank.name === fields[index].bank_name,
+                          )?.accounts.length === 0 && (
                             <div className="p-2 text-center text-muted-foreground">
                               No available account number for this bank.
                             </div>
-                          )
-                        }
+                          )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -267,7 +283,8 @@ export function BankAccountInputs({ control, name }: BankAccountInputsProps) {
                     </div>
                   </FormControl>
                   <FormDescription>
-                    This field will be filled automatically when you select an account number
+                    This field will be filled automatically when you select an
+                    account number
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
