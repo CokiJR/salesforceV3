@@ -1,10 +1,17 @@
-
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { Customer, BankAccount } from "@/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { Save, Loader2, Building, User, Mail, Phone, MapPin } from "lucide-react";
+import {
+  Save,
+  Loader2,
+  Building,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+} from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -43,13 +50,19 @@ const bankAccountSchema = z.object({
   id: z.string().optional(),
   bank_name: z.string().min(2, { message: "Bank name is required" }),
   account_number: z.string().min(5, { message: "Account number is required" }),
-  account_holder_name: z.string().min(2, { message: "Account holder name is required" }),
+  account_holder_name: z
+    .string()
+    .min(2, { message: "Account holder name is required" }),
 });
 
 // Define the validation schema
 const customerSchema = z.object({
-  name: z.string().min(2, { message: "Customer name must be at least 2 characters" }),
-  contact_person: z.string().min(2, { message: "Contact person name is required" }),
+  name: z
+    .string()
+    .min(2, { message: "Customer name must be at least 2 characters" }),
+  contact_person: z
+    .string()
+    .min(2, { message: "Contact person name is required" }),
   email: z.string().email({ message: "Please enter a valid email address" }),
   phone: z.string().min(5, { message: "Phone number is required" }),
   address: z.string().min(5, { message: "Address is required" }),
@@ -76,7 +89,7 @@ const EditCustomer = () => {
   >([]);
   const [isLoadingPayterms, setIsLoadingPayterms] = useState(false);
   const { toast } = useToast();
-  
+
   const form = useForm<CustomerFormValues>({
     resolver: zodResolver(customerSchema),
     defaultValues: {
@@ -123,23 +136,23 @@ const EditCustomer = () => {
       const { data: relationships, error: relError } = await supabase
         .from("customer_bank_accounts")
         .select("bank_account_id")
-        .eq("customer_id", customerId);
-      
+        .eq("customer_uuid", customerId);
+
       if (relError) throw relError;
-      
+
       if (relationships && relationships.length > 0) {
         // Get all bank account IDs
-        const bankAccountIds = relationships.map(rel => rel.bank_account_id);
-        
+        const bankAccountIds = relationships.map((rel) => rel.bank_account_id);
+
         // Fetch the actual bank accounts
         const { data: accounts, error: accError } = await supabase
           .from("bank_accounts")
           .select("*")
           .in("id", bankAccountIds);
-          
+
         if (accError) throw accError;
         setBankAccounts(accounts || []);
-        
+
         // Update the form with bank accounts
         form.setValue("bank_accounts", accounts || []);
       }
@@ -156,7 +169,7 @@ const EditCustomer = () => {
   useEffect(() => {
     const fetchCustomer = async () => {
       if (!id) return;
-      
+
       try {
         setLoading(true);
         const { data, error } = await supabase
@@ -164,22 +177,24 @@ const EditCustomer = () => {
           .select("*")
           .eq("id", id)
           .single();
-        
+
         if (error) throw error;
-        
+
         // Convert the raw data to properly typed Customer object
         const typedCustomer: Customer = {
           ...data,
           status: data.status as "active" | "inactive",
           cycle: data.cycle || "YYYY",
-          location: data.location ? {
-            lat: Number((data.location as any).lat || 0),
-            lng: Number((data.location as any).lng || 0)
-          } : undefined
+          location: data.location
+            ? {
+                lat: Number((data.location as any).lat || 0),
+                lng: Number((data.location as any).lng || 0),
+              }
+            : undefined,
         };
-        
+
         setCustomer(typedCustomer);
-        
+
         // Set form values
         form.reset({
           name: typedCustomer.name,
@@ -193,10 +208,10 @@ const EditCustomer = () => {
           payment_term: typedCustomer.payment_term || "",
           bank_accounts: [],
         });
-        
+
         // Fetch bank accounts for this customer
         await fetchBankAccounts(typedCustomer.id);
-        
+
         // Fetch payment terms
         await fetchPayterms();
       } catch (error: any) {
@@ -216,7 +231,7 @@ const EditCustomer = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!customer) return;
-    
+
     const { name, value } = e.target;
     setCustomer({ ...customer, [name]: value });
   };
@@ -233,10 +248,10 @@ const EditCustomer = () => {
 
   const onSubmit = async (values: CustomerFormValues) => {
     if (!customer) return;
-    
+
     try {
       setSaving(true);
-      
+
       // Prepare the data for saving
       const customerData = {
         ...customer,
@@ -250,123 +265,137 @@ const EditCustomer = () => {
         cycle: values.cycle,
         payment_term: values.payment_term,
         // Convert location object to JSON format for storage
-        location: customer.location ? {
-          lat: customer.location.lat,
-          lng: customer.location.lng
-        } : null
+        location: customer.location
+          ? {
+              lat: customer.location.lat,
+              lng: customer.location.lng,
+            }
+          : null,
       };
-      
+
       // Update customer data
       const { error: customerError } = await supabase
         .from("customers")
         .update(customerData)
         .eq("id", customer.id);
-      
+
       if (customerError) throw customerError;
-      
+
       // Handle bank accounts
       if (values.bank_accounts && values.bank_accounts.length > 0) {
         // First, delete existing relationships
-        const { error: deleteError } = await supabase
+        let deleteError = null;
+        const { error } = await supabase
           .from("customer_bank_accounts")
           .delete()
-          .eq("customer_id", customer.id);
-        
+          .eq("customer_uuid", customer.id);
+
+        deleteError = error;
         if (deleteError) throw deleteError;
-        
+
         // Then create new relationships
-        const relationships = await Promise.all(values.bank_accounts.map(async account => {
-          // If the account has no ID, it's a new account that needs to be created
-          if (!account.id) {
-            // Check if account with this number already exists
-            const { data: existingAccount, error: checkError } = await supabase
-              .from("bank_accounts")
-              .select("id")
-              .eq("account_number", account.account_number)
-              .maybeSingle();
-            
-            if (checkError) throw checkError;
-            
-            // If account already exists, use that instead of creating a new one
-            if (existingAccount) {
-              // Update the existing account with new details
-              const { error: updateError } = await supabase
-                .from("bank_accounts")
-                .update({
-                  bank_name: account.bank_name,
-                  account_holder_name: account.account_holder_name
-                })
-                .eq("id", existingAccount.id);
-              
-              if (updateError) throw updateError;
-              
-              return {
-                customer_id: customer.id,
-                bank_account_id: existingAccount.id
-              };
-            } else {
-              // Create new account if it doesn't exist
-              const { data, error } = await supabase
-                .from("bank_accounts")
-                .insert({
-                  bank_name: account.bank_name,
-                  account_number: account.account_number,
-                  account_holder_name: account.account_holder_name
-                })
-                .select();
-              
-              if (error) throw error;
-              if (data && data[0]) {
+        const relationships = await Promise.all(
+          values.bank_accounts.map(async (account) => {
+            // If the account has no ID, it's a new account that needs to be created
+            if (!account.id) {
+              // Check if account with this number already exists
+              const { data: existingAccount, error: checkError } =
+                await supabase
+                  .from("bank_accounts")
+                  .select("id")
+                  .eq("account_number", account.account_number)
+                  .maybeSingle();
+
+              if (checkError) throw checkError;
+
+              // If account already exists, use that instead of creating a new one
+              if (existingAccount) {
+                // Update the existing account with new details
+                const { error: updateError } = await supabase
+                  .from("bank_accounts")
+                  .update({
+                    bank_name: account.bank_name,
+                    account_holder_name: account.account_holder_name,
+                  })
+                  .eq("id", existingAccount.id);
+
+                if (updateError) throw updateError;
+
                 return {
-                  customer_id: customer.id,
-                  bank_account_id: data[0].id
+                  customer_uuid: customer.id,
+                  customer_id: customer.customer_id,
+                  bank_account_id: existingAccount.id,
                 };
+              } else {
+                // Create new account if it doesn't exist
+                const { data, error } = await supabase
+                  .from("bank_accounts")
+                  .insert({
+                    bank_name: account.bank_name,
+                    account_number: account.account_number,
+                    account_holder_name: account.account_holder_name,
+                  })
+                  .select();
+
+                if (error) throw error;
+                if (data && data[0]) {
+                  return {
+                    customer_uuid: customer.id,
+                    customer_id: customer.customer_id,
+                    bank_account_id: data[0].id,
+                  };
+                }
+                return null;
               }
-              return null;
+            } else {
+              // If the account has an ID, just create the relationship
+              return {
+                customer_uuid: customer.id,
+                customer_id: customer.customer_id,
+                bank_account_id: account.id,
+              };
             }
-          } else {
-            // If the account has an ID, just create the relationship
-            return {
-              customer_id: customer.id,
-              bank_account_id: account.id
-            };
-          }
-        }));
-        
+          }),
+        );
+
         // Filter out any null relationships
-        const validRelationships = relationships.filter(rel => rel !== null);
-        
+        const validRelationships = relationships.filter((rel) => rel !== null);
+
         if (validRelationships.length > 0) {
           // Use the correct column names as defined in the migration file
-          // The column is 'customer_id' not 'customer_uuid'
-          const relationshipsWithCorrectColumns = validRelationships.map(rel => ({
-            customer_id: rel.customer_id,
-            bank_account_id: rel.bank_account_id
-            // created_at will be automatically filled by Supabase
-          }));
-          
+          const relationshipsWithCorrectColumns = validRelationships.map(
+            (rel) => ({
+              customer_uuid: rel.customer_uuid,
+              customer_id: rel.customer_id,
+              bank_account_id: rel.bank_account_id,
+              created_at: new Date().toISOString(),
+            }),
+          );
+
           // Debug the data being inserted
-          console.log('Inserting relationships:', relationshipsWithCorrectColumns);
-          
+          console.log(
+            "Inserting relationships:",
+            relationshipsWithCorrectColumns,
+          );
+
           const { error: relError } = await supabase
             .from("customer_bank_accounts")
             .insert(relationshipsWithCorrectColumns);
-          
+
           if (relError) {
-            console.error('Error inserting relationships:', relError);
+            console.error("Error inserting relationships:", relError);
             throw relError;
           }
         }
       }
-      
+
       toast({
         title: "Customer updated",
         description: "Customer details have been successfully updated.",
       });
-      
+
       // Navigate back to customer detail page
       navigate(`/dashboard/customers/${customer.id}`);
-      
     } catch (error: any) {
       console.error("Error updating customer:", error.message);
       toast({
@@ -378,19 +407,19 @@ const EditCustomer = () => {
       setSaving(false);
     }
   };
-  
+
   const handleSave = () => {
     form.handleSubmit(onSubmit)();
   };
 
   const getCycleDescription = (cycle: string) => {
-    switch(cycle) {
-      case 'YYYY':
-        return 'Every Week';
-      case 'YTYT':
-        return 'Week 1 & 3';
-      case 'TYTY':
-        return 'Week 2 & 4';
+    switch (cycle) {
+      case "YYYY":
+        return "Every Week";
+      case "YTYT":
+        return "Week 1 & 3";
+      case "TYTY":
+        return "Week 2 & 4";
       default:
         return cycle;
     }
@@ -456,7 +485,7 @@ const EditCustomer = () => {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -491,7 +520,7 @@ const EditCustomer = () => {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -526,7 +555,7 @@ const EditCustomer = () => {
                   )}
                 />
               </div>
-              
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <FormField
                   control={form.control}
@@ -599,7 +628,10 @@ const EditCustomer = () => {
                       </FormControl>
                       <SelectContent>
                         {payterms.map((term) => (
-                          <SelectItem key={term.payterm_code} value={term.payterm_code}>
+                          <SelectItem
+                            key={term.payterm_code}
+                            value={term.payterm_code}
+                          >
                             {term.payterm_code} - {term.description}
                           </SelectItem>
                         ))}
@@ -616,17 +648,14 @@ const EditCustomer = () => {
               <BankAccountInputs control={form.control} name="bank_accounts" />
             </CardContent>
             <CardFooter className="justify-between">
-              <Button 
+              <Button
                 type="button"
-                variant="outline" 
+                variant="outline"
                 onClick={() => navigate(`/dashboard/customers/${customer.id}`)}
               >
                 Cancel
               </Button>
-              <Button 
-                type="submit" 
-                disabled={saving}
-              >
+              <Button type="submit" disabled={saving}>
                 {saving ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

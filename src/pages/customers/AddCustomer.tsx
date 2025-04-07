@@ -83,7 +83,6 @@ const customerSchema = z.object({
   bank_accounts: z.array(bankAccountSchema).optional().default([]),
 });
 
-
 type CustomerFormValues = z.infer<typeof customerSchema>;
 
 export default function AddCustomer() {
@@ -174,8 +173,6 @@ export default function AddCustomer() {
     }
   };
 
-
-
   // Generate customer ID and fetch payment terms on component mount
   useEffect(() => {
     generateCustomerId();
@@ -193,7 +190,8 @@ export default function AddCustomer() {
             toast({
               variant: "destructive",
               title: "Validasi Error",
-              description: "Silakan pilih nomor rekening untuk setiap bank yang Anda tambahkan.",
+              description:
+                "Silakan pilih nomor rekening untuk setiap bank yang Anda tambahkan.",
             });
             setIsSubmitting(false);
             return;
@@ -231,16 +229,20 @@ export default function AddCustomer() {
       }
 
       if (!newCustomer) {
-        throw new Error("Gagal membuat customer: Tidak ada data yang dikembalikan");
+        throw new Error(
+          "Gagal membuat customer: Tidak ada data yang dikembalikan",
+        );
       }
 
       // LANGKAH 3: Dapatkan customer_uuid dari response
       const customer_uuid = newCustomer.id;
       console.log("Customer berhasil disimpan dengan UUID:", customer_uuid);
-      
+
       // Pastikan customer_uuid tidak null saat menyimpan ke customer_bank_accounts
       if (!customer_uuid) {
-        throw new Error("UUID Customer tidak ditemukan. Tidak dapat menghubungkan rekening bank.");
+        throw new Error(
+          "UUID Customer tidak ditemukan. Tidak dapat menghubungkan rekening bank.",
+        );
       }
 
       let bankAccountsLinked = 0;
@@ -250,58 +252,70 @@ export default function AddCustomer() {
         console.log("Menyimpan data rekening bank...");
         // Buat array untuk menyimpan semua relasi rekening bank
         const bankAccountRelationships = [];
-        
+
         for (const bankAccount of data.bank_accounts) {
           // Lewati rekening bank yang kosong
           if (!bankAccount.bank_name || !bankAccount.account_number) continue;
-          
+
           // Cari ID rekening bank
-          console.log(`Mencari rekening bank: ${bankAccount.bank_name} - ${bankAccount.account_number}`);
-          const { data: bankAccountData, error: bankAccountError } = await supabase
-            .from("bank_accounts")
-            .select("id")
-            .eq("bank_name", bankAccount.bank_name)
-            .eq("account_number", bankAccount.account_number)
-            .single();
-            
+          console.log(
+            `Mencari rekening bank: ${bankAccount.bank_name} - ${bankAccount.account_number}`,
+          );
+          const { data: bankAccountData, error: bankAccountError } =
+            await supabase
+              .from("bank_accounts")
+              .select("id")
+              .eq("bank_name", bankAccount.bank_name)
+              .eq("account_number", bankAccount.account_number)
+              .single();
+
           if (bankAccountError) {
-            throw new Error(`Gagal menemukan rekening bank: ${bankAccountError.message}`);
+            throw new Error(
+              `Gagal menemukan rekening bank: ${bankAccountError.message}`,
+            );
           }
-          
+
           if (!bankAccountData) {
             throw new Error("Rekening bank yang dipilih tidak ditemukan");
           }
-          
-          // Tambahkan ke array relasi dengan customer_uuid
+
+          // Tambahkan ke array relasi dengan customer_uuid dan customer_id
           bankAccountRelationships.push({
-            customer_id: customer_uuid, // Gunakan customer_uuid dari langkah 3
+            customer_uuid: customer_uuid, // UUID dari customers.id
+            customer_id: data.customer_id, // ID format C0000000
             bank_account_id: bankAccountData.id,
             created_at: new Date().toISOString(),
           });
         }
-        
+
         // Simpan semua relasi sekaligus
         if (bankAccountRelationships.length > 0) {
-          console.log(`Menyimpan ${bankAccountRelationships.length} relasi rekening bank...`);
+          console.log(
+            `Menyimpan ${bankAccountRelationships.length} relasi rekening bank...`,
+          );
           const { error: relationError } = await supabase
             .from("customer_bank_accounts")
             .insert(bankAccountRelationships);
-  
+
           if (relationError) {
             // Jika gagal menyimpan relasi rekening bank, tampilkan error
             // Catatan: Supabase tidak mendukung transaksi sejati, jadi kita tidak bisa dengan mudah rollback customer
-            throw new Error(`Gagal menghubungkan rekening bank: ${relationError.message}`);
+            throw new Error(
+              `Gagal menghubungkan rekening bank: ${relationError.message}`,
+            );
           }
-          
+
           bankAccountsLinked = bankAccountRelationships.length;
-          console.log(`${bankAccountsLinked} rekening bank berhasil dihubungkan`);
+          console.log(
+            `${bankAccountsLinked} rekening bank berhasil dihubungkan`,
+          );
         }
       }
 
       // Jika sampai di sini, berarti semua proses berhasil
       toast({
         title: "Customer berhasil ditambahkan",
-        description: `${data.name} telah ditambahkan ke daftar customer Anda${bankAccountsLinked > 0 ? ` dengan ${bankAccountsLinked} rekening bank` : ''}.`,
+        description: `${data.name} telah ditambahkan ke daftar customer Anda${bankAccountsLinked > 0 ? ` dengan ${bankAccountsLinked} rekening bank` : ""}.`,
       });
 
       // Navigasi kembali ke daftar customer
@@ -446,7 +460,7 @@ export default function AddCustomer() {
                     )}
                   />
                 </div>
-                
+
                 {/* Bank Account Section */}
                 <div className="mt-6">
                   <FormField
@@ -454,7 +468,10 @@ export default function AddCustomer() {
                     name="bank_accounts"
                     render={() => (
                       <FormItem>
-                        <BankAccountInputs control={form.control} name="bank_accounts" />
+                        <BankAccountInputs
+                          control={form.control}
+                          name="bank_accounts"
+                        />
                         <FormMessage />
                       </FormItem>
                     )}
