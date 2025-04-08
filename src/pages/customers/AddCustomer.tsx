@@ -201,7 +201,7 @@ export default function AddCustomer() {
 
       // LANGKAH 1: Buat objek customerData dengan format yang diharapkan oleh Supabase
       const customerData = {
-        id: crypto.randomUUID(), // Generate UUID untuk primary key
+        // Tidak perlu generate UUID secara manual, biarkan Supabase yang melakukannya
         customer_id: data.customer_id,
         name: data.name,
         contact_person: data.contact_person,
@@ -280,9 +280,10 @@ export default function AddCustomer() {
           }
 
           // Tambahkan ke array relasi dengan customer_uuid dan customer_id
+          // Sesuai dengan struktur tabel yang telah diubah di migrasi 20240701000001_fix_customer_bank_accounts.sql
           bankAccountRelationships.push({
-            customer_uuid: customer_uuid, // UUID dari customers.id
-            customer_id: data.customer_id, // ID format C0000000
+            customer_uuid: customer_uuid, // UUID dari customers.id (kolom yang benar untuk foreign key)
+            customer_id: data.customer_id, // ID format C0000000 (untuk referensi/pencarian)
             bank_account_id: bankAccountData.id,
             created_at: new Date().toISOString(),
           });

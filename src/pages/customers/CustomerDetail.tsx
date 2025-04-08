@@ -43,7 +43,7 @@ const CustomerDetail = () => {
             const { data: relationships, error: relError } = await supabase
               .from("customer_bank_accounts")
               .select("bank_account_id")
-              .eq("customer_id", typedCustomer.id);
+              .eq("customer_uuid", typedCustomer.id);
             
             if (relError) throw relError;
             
