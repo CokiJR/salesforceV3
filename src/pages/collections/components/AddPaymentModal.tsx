@@ -1,22 +1,22 @@
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { format } from "date-fns";
+import { Calendar as CalendarIcon } from "lucide-react";
 
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { format } from 'date-fns';
-import { Calendar as CalendarIcon } from 'lucide-react';
-
-import { Collection, Payment } from '@/types/collection';
-import { Customer } from '@/types';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogFooter 
-} from '@/components/ui/dialog';
+import { Collection, Payment } from "@/types/collection";
+import { Customer, BankAccount } from "@/types";
+import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import {
   Form,
   FormControl,
@@ -24,16 +24,23 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from '@/components/ui/form';
-import { 
+} from "@/components/ui/form";
+import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from '@/components/ui/popover';
-import { Calendar } from '@/components/ui/calendar';
-import { cn } from '@/lib/utils';
-import { PaymentService } from '../services/PaymentService';
-import { toast } from '@/components/ui/use-toast';
+} from "@/components/ui/popover";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Calendar } from "@/components/ui/calendar";
+import { cn } from "@/lib/utils";
+import { PaymentService } from "../services/PaymentService";
+import { toast } from "@/components/ui/use-toast";
 
 interface AddPaymentModalProps {
   collection: Collection;
@@ -44,32 +51,38 @@ interface AddPaymentModalProps {
 }
 
 const paymentSchema = z.object({
-  bank_account: z.string().min(1, 'Bank account is required'),
-  amount: z.number().positive('Amount must be positive'),
+  bank_account_id: z.string().min(1, "Bank account is required"),
+  amount: z.number().positive("Amount must be positive"),
   payment_date: z.date({
-    required_error: 'Payment date is required',
+    required_error: "Payment date is required",
   }),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
 
-export function AddPaymentModal({ 
-  collection, 
-  customer, 
-  isOpen, 
-  onClose, 
-  onPaymentAdded 
+export function AddPaymentModal({
+  collection,
+  customer,
+  isOpen,
+  onClose,
+  onPaymentAdded,
 }: AddPaymentModalProps) {
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [remainingAmount, setRemainingAmount] = useState<number>(collection.amount);
+  const [remainingAmount, setRemainingAmount] = useState<number>(
+    collection.amount,
+  );
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [isLoadingBankAccounts, setIsLoadingBankAccounts] = useState(false);
 
   useEffect(() => {
     const fetchTotalPayments = async () => {
       try {
-        const totalPaid = await PaymentService.getTotalPaymentsByCollectionId(collection.id);
+        const totalPaid = await PaymentService.getTotalPaymentsByCollectionId(
+          collection.id,
+        );
         setRemainingAmount(Math.max(0, collection.amount - totalPaid));
       } catch (error) {
-        console.error('Error fetching total payments:', error);
+        console.error("Error fetching total payments:", error);
       }
     };
 
@@ -78,10 +91,58 @@ export function AddPaymentModal({
     }
   }, [isOpen, collection]);
 
+  // Fetch customer bank accounts
+  useEffect(() => {
+    const fetchBankAccounts = async () => {
+      if (!collection.customer_id) return;
+
+      try {
+        setIsLoadingBankAccounts(true);
+        // First get the relationships from customer_bank_accounts
+        const { data: relationships, error: relError } = await supabase
+          .from("customer_bank_accounts")
+          .select("bank_account_id")
+          .eq("customer_uuid", collection.customer_id);
+
+        if (relError) throw relError;
+
+        if (relationships && relationships.length > 0) {
+          // Get all bank account IDs
+          const bankAccountIds = relationships.map(
+            (rel) => rel.bank_account_id,
+          );
+
+          // Fetch the actual bank accounts
+          const { data: accounts, error: accError } = await supabase
+            .from("bank_accounts")
+            .select("*")
+            .in("id", bankAccountIds);
+
+          if (accError) throw accError;
+          setBankAccounts(accounts || []);
+          console.log("Fetched bank accounts:", accounts);
+        } else {
+          console.log(
+            "No bank account relationships found for customer_uuid:",
+            collection.customer_id,
+          );
+        }
+      } catch (error: any) {
+        console.error("Error fetching bank accounts:", error.message);
+      } finally {
+        setIsLoadingBankAccounts(false);
+      }
+    };
+
+    if (isOpen && collection.customer_id) {
+      fetchBankAccounts();
+    }
+  }, [isOpen, collection.customer_id]);
+
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
-      bank_account: customer?.bank_account || '',
+      bank_account_id: "",
       amount: remainingAmount,
       payment_date: new Date(),
     },
@@ -89,50 +150,51 @@ export function AddPaymentModal({
 
   // Update form when the remaining amount changes
   useEffect(() => {
-    form.setValue('amount', remainingAmount);
+    form.setValue("amount", remainingAmount);
   }, [remainingAmount, form]);
 
-  // Set bank account when customer data is available
+  // Set first bank account when bank accounts are loaded
   useEffect(() => {
-    if (customer?.bank_account) {
-      form.setValue('bank_account', customer.bank_account);
+    if (bankAccounts.length > 0) {
+      console.log("Setting default bank account:", bankAccounts[0].id);
+      form.setValue("bank_account_id", bankAccounts[0].id);
     }
-  }, [customer, form]);
+  }, [bankAccounts, form]);
 
   const onSubmit = async (values: PaymentFormValues) => {
     if (values.amount > remainingAmount) {
-      form.setError('amount', { 
-        type: 'manual', 
-        message: `Amount cannot exceed the remaining amount of ${new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(remainingAmount)}` 
+      form.setError("amount", {
+        type: "manual",
+        message: `Amount cannot exceed the remaining amount of ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(remainingAmount)}`,
       });
       return;
     }
 
     try {
       setIsSubmitting(true);
-      
-      const paymentData: Omit<Payment, 'id' | 'created_at' | 'updated_at'> = {
+
+      const paymentData: Omit<Payment, "id" | "created_at" | "updated_at"> = {
         collection_id: collection.id,
         customer_id: collection.customer_id,
-        bank_account: values.bank_account,
+        bank_account_id: values.bank_account_id,
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
-        status: 'Pending',
+        status: "Pending",
       };
-      
+
       await PaymentService.createPayment(paymentData);
-      
+
       toast({
-        title: 'Payment added successfully',
-        description: 'The payment has been recorded.',
+        title: "Payment added successfully",
+        description: "The payment has been recorded.",
       });
-      
+
       onPaymentAdded();
       onClose();
     } catch (error: any) {
       toast({
-        variant: 'destructive',
-        title: 'Failed to add payment',
+        variant: "destructive",
+        title: "Failed to add payment",
         description: error.message,
       });
     } finally {
@@ -146,34 +208,74 @@ export function AddPaymentModal({
         <DialogHeader>
           <DialogTitle>Add Payment</DialogTitle>
         </DialogHeader>
-        
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div>
               <p className="text-sm text-muted-foreground mb-4">
-                Invoice: <span className="font-medium text-foreground">{collection.invoice_number}</span> | 
-                Customer: <span className="font-medium text-foreground">{collection.customer_name}</span>
+                Invoice:{" "}
+                <span className="font-medium text-foreground">
+                  {collection.invoice_number}
+                </span>{" "}
+                | Customer:{" "}
+                <span className="font-medium text-foreground">
+                  {collection.customer_name}
+                </span>
               </p>
               <p className="text-sm mb-4">
-                <span className="font-medium">Invoice Amount:</span> {new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(collection.amount)} | 
-                <span className="font-medium"> Remaining:</span> {new Intl.NumberFormat('en-US', {style: 'currency', currency: 'USD'}).format(remainingAmount)}
+                <span className="font-medium">Invoice Amount:</span>{" "}
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(collection.amount)}{" "}
+                |<span className="font-medium"> Remaining:</span>{" "}
+                {new Intl.NumberFormat("en-US", {
+                  style: "currency",
+                  currency: "USD",
+                }).format(remainingAmount)}
               </p>
             </div>
-            
+
             <FormField
               control={form.control}
-              name="bank_account"
+              name="bank_account_id"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Bank Account</FormLabel>
                   <FormControl>
-                    <Input placeholder="Enter bank account" {...field} />
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select a bank account" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {isLoadingBankAccounts ? (
+                          <SelectItem value="loading" disabled>
+                            Loading accounts...
+                          </SelectItem>
+                        ) : bankAccounts.length === 0 ? (
+                          <SelectItem value="none" disabled>
+                            No bank accounts found
+                          </SelectItem>
+                        ) : (
+                          bankAccounts.map((account) => (
+                            <SelectItem key={account.id} value={account.id}>
+                              {account.bank_name} - {account.account_number} (
+                              {account.account_holder_name})
+                            </SelectItem>
+                          ))
+                        )}
+                      </SelectContent>
+                    </Select>
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="amount"
@@ -181,21 +283,23 @@ export function AddPaymentModal({
                 <FormItem>
                   <FormLabel>Amount</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
+                    <Input
+                      type="number"
                       placeholder="0.00"
                       step="0.01"
                       min="0.01"
                       max={remainingAmount}
-                      onChange={(e) => field.onChange(parseFloat(e.target.value))}
-                      value={field.value} 
+                      onChange={(e) =>
+                        field.onChange(parseFloat(e.target.value))
+                      }
+                      value={field.value}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <FormField
               control={form.control}
               name="payment_date"
@@ -209,7 +313,7 @@ export function AddPaymentModal({
                           variant="outline"
                           className={cn(
                             "w-full pl-3 text-left font-normal",
-                            !field.value && "text-muted-foreground"
+                            !field.value && "text-muted-foreground",
                           )}
                         >
                           {field.value ? (
@@ -235,13 +339,13 @@ export function AddPaymentModal({
                 </FormItem>
               )}
             />
-            
+
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
                 Cancel
               </Button>
               <Button type="submit" disabled={isSubmitting}>
-                {isSubmitting ? 'Processing...' : 'Add Payment'}
+                {isSubmitting ? "Processing..." : "Add Payment"}
               </Button>
             </DialogFooter>
           </form>

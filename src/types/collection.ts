@@ -1,5 +1,4 @@
-
-import { Customer, Transaction } from '.';
+import { Customer, Transaction } from ".";
 
 export interface Collection {
   id: string;
@@ -10,7 +9,7 @@ export interface Collection {
   amount: number;
   due_date: string;
   payment_date?: string;
-  status: 'Paid' | 'Unpaid';
+  status: "Paid" | "Unpaid";
   notes?: string;
   created_at: string;
   updated_at: string;
@@ -35,7 +34,7 @@ export interface CollectionImportFormat {
   customer_name: string;
   amount: number | string;
   due_date: string;
-  status?: 'Paid' | 'Unpaid';
+  status?: "Paid" | "Unpaid";
   notes?: string;
   bank_account?: string;
   invoice_date?: string;
@@ -46,10 +45,10 @@ export interface Payment {
   id: string;
   collection_id: string;
   customer_id: string;
-  bank_account: string;
+  bank_account_id: string;
   amount: number;
   payment_date: string;
-  status: 'Pending' | 'Completed' | 'Failed';
+  status: "Pending" | "Completed" | "Failed";
   created_at: string;
   updated_at: string;
   collection?: Collection;
