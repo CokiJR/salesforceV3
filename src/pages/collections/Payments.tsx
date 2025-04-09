@@ -120,9 +120,9 @@ export default function Payments() {
                       <TableCell>{payment.collection?.customer_name || 'N/A'}</TableCell>
                       <TableCell>{payment.bank_account}</TableCell>
                       <TableCell>
-                        {new Intl.NumberFormat('en-US', {
+                        {new Intl.NumberFormat('id-ID', {
                           style: 'currency',
-                          currency: 'USD'
+                          currency: 'IDR'
                         }).format(payment.amount)}
                       </TableCell>
                       <TableCell>{format(new Date(payment.payment_date), 'MMM dd, yyyy')}</TableCell>

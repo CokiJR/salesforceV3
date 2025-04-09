@@ -182,9 +182,9 @@ export default function AddPayment() {
                         <SelectContent>
                           {unpaidCollections.map((collection) => (
                             <SelectItem key={collection.id} value={collection.id}>
-                              {collection.invoice_number} - {collection.customer_name} - {new Intl.NumberFormat('en-US', {
+                              {collection.invoice_number} - {collection.customer_name} - {new Intl.NumberFormat('id-ID', {
                                 style: 'currency',
-                                currency: 'USD'
+                                currency: 'IDR'
                               }).format(collection.amount)}
                             </SelectItem>
                           ))}
@@ -200,9 +200,9 @@ export default function AddPayment() {
                     <p><span className="font-medium">Invoice:</span> {selectedCollection.invoice_number}</p>
                     <p><span className="font-medium">Customer:</span> {selectedCollection.customer_name}</p>
                     <p><span className="font-medium">Due Date:</span> {format(new Date(selectedCollection.due_date), 'MMM dd, yyyy')}</p>
-                    <p><span className="font-medium">Amount Due:</span> {new Intl.NumberFormat('en-US', {
+                    <p><span className="font-medium">Amount Due:</span> {new Intl.NumberFormat('id-ID', {
                       style: 'currency',
-                      currency: 'USD'
+                      currency: 'IDR'
                     }).format(selectedCollection.amount)}</p>
                   </div>
                 )}

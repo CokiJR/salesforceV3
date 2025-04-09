@@ -165,7 +165,7 @@ export function AddPaymentModal({
     if (values.amount > remainingAmount) {
       form.setError("amount", {
         type: "manual",
-        message: `Amount cannot exceed the remaining amount of ${new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(remainingAmount)}`,
+        message: `Amount cannot exceed the remaining amount of ${new Intl.NumberFormat("id-ID", { style: "currency", currency: "IDR" }).format(remainingAmount)}`,
       });
       return;
     }
@@ -224,14 +224,14 @@ export function AddPaymentModal({
               </p>
               <p className="text-sm mb-4">
                 <span className="font-medium">Invoice Amount:</span>{" "}
-                {new Intl.NumberFormat("en-US", {
+                {new Intl.NumberFormat("id-ID", {
                   style: "currency",
-                  currency: "USD",
+                  currency: "IDR",
                 }).format(collection.amount)}{" "}
                 |<span className="font-medium"> Remaining:</span>{" "}
-                {new Intl.NumberFormat("en-US", {
+                {new Intl.NumberFormat("id-ID", {
                   style: "currency",
-                  currency: "USD",
+                  currency: "IDR",
                 }).format(remainingAmount)}
               </p>
             </div>
