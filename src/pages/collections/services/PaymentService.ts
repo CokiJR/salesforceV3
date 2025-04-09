@@ -10,7 +10,8 @@ export class PaymentService {
       .select(`
         *,
         collection:collections(*),
-        customer:customers(*)
+        customer:customers(*),
+        bank_account_details:bank_accounts(*)
       `)
       .order('payment_date', { ascending: false });
 
@@ -47,7 +48,8 @@ export class PaymentService {
       return {
         ...item,
         status: item.status as 'Pending' | 'Completed' | 'Failed',
-        customer: customerData as Customer | undefined
+        customer: customerData as Customer | undefined,
+        bank_account_details: item.bank_account_details
       };
     }) as Payment[];
   }
@@ -58,7 +60,8 @@ export class PaymentService {
       .select(`
         *,
         collection:collections(*),
-        customer:customers(*)
+        customer:customers(*),
+        bank_account_details:bank_accounts(*)
       `)
       .eq('collection_id', collectionId)
       .order('payment_date', { ascending: false });
@@ -96,16 +99,25 @@ export class PaymentService {
       return {
         ...item,
         status: item.status as 'Pending' | 'Completed' | 'Failed',
-        customer: customerData as Customer | undefined
+        customer: customerData as Customer | undefined,
+        bank_account_details: item.bank_account_details
       };
     }) as Payment[];
   }
 
   static async createPayment(payment: Omit<Payment, 'id' | 'created_at' | 'updated_at'>): Promise<Payment> {
+    // Ensure we have the required fields
+    if (!payment.bank_account_id) {
+      throw new Error('Bank account ID is required');
+    }
+
     const { data, error } = await supabase
       .from('payments')
       .insert(payment)
-      .select()
+      .select(`
+        *,
+        bank_account_details:bank_accounts(*)
+      `)
       .single();
 
     if (error) {

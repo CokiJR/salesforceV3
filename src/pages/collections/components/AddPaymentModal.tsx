@@ -263,7 +263,7 @@ export function AddPaymentModal({
                         ) : (
                           bankAccounts.map((account) => (
                             <SelectItem key={account.id} value={account.id}>
-                              {account.bank_name} - {account.account_number} (
+                              <span className="font-medium">{account.bank_name}</span> - <span className="text-muted-foreground">{account.account_number}</span> (
                               {account.account_holder_name})
                             </SelectItem>
                           ))

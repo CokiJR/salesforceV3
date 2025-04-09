@@ -84,23 +84,14 @@ export function CollectionsTable({
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
                       {collection.status === 'Unpaid' ? (
-                        <>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleAddPayment(collection)}
-                          >
-                            <DollarSign className="mr-1 h-3 w-3" />
-                            Add Payment
-                          </Button>
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => onChangeStatus(collection.id, 'Paid')}
-                          >
-                            Mark as Paid
-                          </Button>
-                        </>
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => handleAddPayment(collection)}
+                        >
+                          <DollarSign className="mr-1 h-3 w-3" />
+                          Add Payment
+                        </Button>
                       ) : (
                         <Button 
                           variant="outline" 

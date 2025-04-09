@@ -118,7 +118,15 @@ export default function Payments() {
                         {payment.collection?.invoice_number || 'N/A'}
                       </TableCell>
                       <TableCell>{payment.collection?.customer_name || 'N/A'}</TableCell>
-                      <TableCell>{payment.bank_account}</TableCell>
+                      <TableCell>
+                        {payment.bank_account_details ? (
+                          <span>
+                            <span className="font-medium">{payment.bank_account_details.bank_name}</span>
+                            <br />
+                            <span className="text-xs text-muted-foreground">{payment.bank_account_details.account_number}</span>
+                          </span>
+                        ) : 'N/A'}
+                      </TableCell>
                       <TableCell>
                         {new Intl.NumberFormat('id-ID', {
                           style: 'currency',

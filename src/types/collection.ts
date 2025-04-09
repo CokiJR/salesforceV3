@@ -53,4 +53,5 @@ export interface Payment {
   updated_at: string;
   collection?: Collection;
   customer?: Customer;
+  bank_account_details?: BankAccount;
 }

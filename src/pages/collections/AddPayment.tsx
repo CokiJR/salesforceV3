@@ -14,6 +14,8 @@ import { toast } from '@/components/ui/use-toast';
 import { usePayments } from './hooks/usePayments';
 import { PaymentService } from './services/PaymentService';
 import { Payment } from '@/types/collection';
+import { BankAccount } from '@/types';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Form,
   FormControl,
@@ -32,7 +34,7 @@ import { cn } from '@/lib/utils';
 
 const paymentSchema = z.object({
   collection_id: z.string().min(1, 'Collection is required'),
-  bank_account: z.string().min(1, 'Bank account is required'),
+  bank_account_id: z.string().min(1, 'Bank account is required'),
   amount: z.number().positive('Amount must be positive'),
   payment_date: z.date({
     required_error: 'Payment date is required',
@@ -48,6 +50,8 @@ export default function AddPayment() {
   const [unpaidCollections, setUnpaidCollections] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedCollection, setSelectedCollection] = useState<any | null>(null);
+  const [bankAccounts, setBankAccounts] = useState<BankAccount[]>([]);
+  const [isLoadingBankAccounts, setIsLoadingBankAccounts] = useState(false);
 
   useEffect(() => {
     const fetchUnpaidCollections = async () => {
@@ -74,7 +78,7 @@ export default function AddPayment() {
     resolver: zodResolver(paymentSchema),
     defaultValues: {
       collection_id: '',
-      bank_account: '',
+      bank_account_id: '',
       amount: 0,
       payment_date: new Date(),
     },
@@ -96,7 +100,7 @@ export default function AddPayment() {
       const paymentData: Omit<Payment, 'id' | 'created_at' | 'updated_at'> = {
         collection_id: values.collection_id,
         customer_id: selectedCollection.customer_id,
-        bank_account: values.bank_account,
+        bank_account_id: values.bank_account_id,
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
         status: 'Pending',
@@ -129,9 +133,53 @@ export default function AddPayment() {
       form.setValue('collection_id', selected.id);
       form.setValue('amount', selected.amount);
       
-      if (selected.customer?.bank_account) {
-        form.setValue('bank_account', selected.customer.bank_account);
+      // Fetch bank accounts for this customer
+      fetchBankAccounts(selected.customer_id);
+    }
+  };
+  
+  const fetchBankAccounts = async (customerId: string) => {
+    if (!customerId) return;
+    
+    try {
+      setIsLoadingBankAccounts(true);
+      // First get the relationships from customer_bank_accounts
+      const { data: relationships, error: relError } = await supabase
+        .from("customer_bank_accounts")
+        .select("bank_account_id")
+        .eq("customer_id", customerId);
+      
+      if (relError) throw relError;
+      
+      if (relationships && relationships.length > 0) {
+        // Get all bank account IDs
+        const bankAccountIds = relationships.map(rel => rel.bank_account_id);
+        
+        // Fetch the actual bank accounts
+        const { data: accounts, error: accError } = await supabase
+          .from("bank_accounts")
+          .select("*")
+          .in("id", bankAccountIds);
+          
+        if (accError) throw accError;
+        setBankAccounts(accounts || []);
+        
+        // Set first bank account as default if available
+        if (accounts && accounts.length > 0) {
+          form.setValue('bank_account_id', accounts[0].id);
+        }
+      } else {
+        setBankAccounts([]);
       }
+    } catch (error: any) {
+      console.error("Error fetching bank accounts:", error.message);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to load bank accounts: ${error.message}`,
+      });
+    } finally {
+      setIsLoadingBankAccounts(false);
     }
   };
 
@@ -209,12 +257,38 @@ export default function AddPayment() {
                 
                 <FormField
                   control={form.control}
-                  name="bank_account"
+                  name="bank_account_id"
                   render={({ field }) => (
                     <FormItem>
                       <FormLabel>Bank Account</FormLabel>
                       <FormControl>
-                        <Input placeholder="Enter bank account" {...field} />
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          value={field.value}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select a bank account" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {isLoadingBankAccounts ? (
+                              <SelectItem value="loading" disabled>
+                                Loading accounts...
+                              </SelectItem>
+                            ) : bankAccounts.length === 0 ? (
+                              <SelectItem value="none" disabled>
+                                No bank accounts found
+                              </SelectItem>
+                            ) : (
+                              bankAccounts.map((account) => (
+                                <SelectItem key={account.id} value={account.id}>
+                                  <span className="font-medium">{account.bank_name}</span> - <span className="text-muted-foreground">{account.account_number}</span> (
+                                  {account.account_holder_name})
+                                </SelectItem>
+                              ))
+                            )}
+                          </SelectContent>
+                        </Select>
                       </FormControl>
                       <FormMessage />
                     </FormItem>
