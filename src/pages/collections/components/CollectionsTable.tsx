@@ -74,11 +74,16 @@ export function CollectionsTable({
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge className={collection.status === 'Paid' 
-                      ? 'bg-green-100 text-green-800 hover:bg-green-200' 
-                      : 'bg-red-100 text-red-800 hover:bg-red-200'
+                    <Badge className={
+                      collection.status === 'Paid' 
+                        ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                        : collection.status === 'Unpaid' && paymentTotals[collection.id] > 0
+                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                          : 'bg-red-100 text-red-800 hover:bg-red-200'
                     }>
-                      {collection.status}
+                      {collection.status === 'Unpaid' && paymentTotals[collection.id] > 0 
+                        ? 'Partial' 
+                        : collection.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -93,13 +98,7 @@ export function CollectionsTable({
                           Add Payment
                         </Button>
                       ) : (
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => onChangeStatus(collection.id, 'Unpaid')}
-                        >
-                          Mark as Unpaid
-                        </Button>
+                        <div>{/* Tombol Mark as Unpaid dinonaktifkan */}</div>
                       )}
                     </div>
                   </TableCell>
@@ -117,7 +116,7 @@ export function CollectionsTable({
       {selectedCollection && (
         <AddPaymentModal
           collection={selectedCollection}
-          customer={selectedCollection.customer}
+          customer={selectedCollection.customer || undefined}
           isOpen={showPaymentModal}
           onClose={() => setShowPaymentModal(false)}
           onPaymentAdded={onPaymentAdded}
