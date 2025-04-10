@@ -201,12 +201,12 @@ export class CollectionService {
   static exportToExcel(collections: Collection[]): Blob {
     try {
       const formattedData = collections.map(c => ({
-        'Invoice Number': c.invoice_number,
-        'Customer Name': c.customer_name,
-        'Due Date': format(new Date(c.due_date), 'yyyy-MM-dd'),
-        'Amount': c.amount,
-        'Status': c.status,
-        'Created At': format(new Date(c.created_at), 'yyyy-MM-dd')
+        'invoice_number': c.invoice_number,
+        'customer_name': c.customer_name,
+        'due_date': format(new Date(c.due_date), 'yyyy-MM-dd'),
+        'amount': c.amount,
+        'status': c.status,
+        'created_at': format(new Date(c.created_at), 'yyyy-MM-dd')
       }));
       
       const worksheet = XLSX.utils.json_to_sheet(formattedData);
@@ -248,14 +248,14 @@ export class CollectionService {
     try {
       const sampleData = [
         {
-          'Invoice Number': 'INV-001',
-          'Customer Name': 'ACME Corporation',
-          'Amount': 1000,
-          'Due Date': '2023-12-31',
-          'Status': 'Unpaid',
-          'Notes': 'Sample note',
-          'Bank Account': '123-456-789',
-          'Invoice Date': '2023-12-01'
+          'invoice_number': 'INV-001',
+          'customer_name': 'ACME Corporation',
+          'amount': 1000,
+          'due_date': '2023-12-31',
+          'status': 'Unpaid',
+          'notes': 'Sample note',
+          'bank_account': '123-456-789',
+          'invoice_date': '2023-12-01'
         }
       ];
       
@@ -298,13 +298,14 @@ export class CollectionService {
           // Map the data to our CollectionImportFormat
           const mappedData = jsonData.map(row => {
             // Handle different possible column names
-            const invoiceNumber = row['Invoice Number'] || row.invoice_number || row.InvoiceNumber || '';
-            const customerName = row['Customer Name'] || row.customer_name || row.CustomerName || '';
-            const amount = Number(row.Amount || row.amount || 0);
+            // Prioritize snake_case format first to match the template
+            const invoiceNumber = row.invoice_number || row['Invoice Number'] || row.InvoiceNumber || '';
+            const customerName = row.customer_name || row['Customer Name'] || row.CustomerName || '';
+            const amount = Number(row.amount || row.Amount || 0);
             
             let dueDate = '';
             try {
-              const rawDueDate = row['Due Date'] || row.due_date || row.DueDate;
+              const rawDueDate = row.due_date || row['Due Date'] || row.DueDate;
               if (rawDueDate) {
                 // Try to parse as date 
                 dueDate = new Date(rawDueDate).toISOString();
@@ -318,10 +319,10 @@ export class CollectionService {
               customer_name: customerName,
               amount: amount,
               due_date: dueDate,
-              status: (row.Status || row.status || 'Unpaid') === 'Paid' ? 'Paid' : 'Unpaid',
-              notes: row.Notes || row.notes || '',
-              bank_account: row['Bank Account'] || row.bank_account || '',
-              invoice_date: row['Invoice Date'] || row.invoice_date || ''
+              status: (row.status || row.Status || 'Unpaid') === 'Paid' ? 'Paid' : 'Unpaid',
+              notes: row.notes || row.Notes || '',
+              bank_account: row.bank_account || row['Bank Account'] || '',
+              invoice_date: row.invoice_date || row['Invoice Date'] || ''
             } as CollectionImportFormat;
           });
           

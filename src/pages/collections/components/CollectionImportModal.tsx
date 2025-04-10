@@ -44,14 +44,14 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
 
         // Map to standardized format
         const formattedData = jsonData.map(row => {
-          // Handle different possible column names
-          const invoiceNumber = row['Invoice Number'] || row.invoice_number || row.InvoiceNumber || '';
-          const customerName = row['Customer Name'] || row.customer_name || row.CustomerName || '';
-          const amount = Number(row.Amount || row.amount || 0);
+          // Prioritize snake_case format first to match the template
+          const invoiceNumber = row.invoice_number || row['Invoice Number'] || row.InvoiceNumber || '';
+          const customerName = row.customer_name || row['Customer Name'] || row.CustomerName || '';
+          const amount = Number(row.amount || row.Amount || 0);
           
           let dueDate = '';
           try {
-            const rawDueDate = row['Due Date'] || row.due_date || row.DueDate;
+            const rawDueDate = row.due_date || row['Due Date'] || row.DueDate;
             if (rawDueDate) {
               // Try to parse as date 
               dueDate = new Date(rawDueDate).toISOString();
@@ -65,10 +65,10 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
             customer_name: customerName,
             amount: amount,
             due_date: dueDate,
-            status: (row.Status || row.status || 'Unpaid') === 'Paid' ? 'Paid' : 'Unpaid',
-            notes: row.Notes || row.notes || '',
-            bank_account: row['Bank Account'] || row.bank_account || '',
-            invoice_date: row['Invoice Date'] || row.invoice_date || ''
+            status: (row.status || row.Status || 'Unpaid') === 'Paid' ? 'Paid' : 'Unpaid',
+            notes: row.notes || row.Notes || '',
+            bank_account: row.bank_account || row['Bank Account'] || '',
+            invoice_date: row.invoice_date || row['Invoice Date'] || ''
           } as CollectionImportFormat;
         });
 
