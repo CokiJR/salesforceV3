@@ -173,10 +173,14 @@ export function AddPaymentModal({
     try {
       setIsSubmitting(true);
 
+      // Find the selected bank account to get its account number
+      const selectedBankAccount = bankAccounts.find(account => account.id === values.bank_account_id);
+      
       const paymentData: Omit<Payment, "id" | "created_at" | "updated_at"> = {
         collection_id: collection.id,
         customer_id: collection.customer_id,
         bank_account_id: values.bank_account_id,
+        account_number: selectedBankAccount?.account_number, // Save the account number
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
         status: "Pending",

@@ -46,6 +46,7 @@ export interface Payment {
   collection_id: string;
   customer_id: string;
   bank_account_id: string;
+  account_number?: string;
   amount: number;
   payment_date: string;
   status: "Pending" | "Completed" | "Failed";
