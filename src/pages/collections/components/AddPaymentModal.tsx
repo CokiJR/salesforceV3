@@ -189,8 +189,9 @@ export function AddPaymentModal({
       // Create payment
       await PaymentService.createPayment(paymentData);
       
-      // Update collection status to Pending
-      if (collection.status === 'Unpaid') {
+      // Update collection status to Pending if it's Unpaid or maintain Pending status
+      // This ensures we don't revert back to Unpaid for subsequent payments
+      if (collection.status === 'Unpaid' || collection.status === 'Pending') {
         try {
           await supabase
             .from('collections')
@@ -201,6 +202,7 @@ export function AddPaymentModal({
           // Continue with the process even if status update fails
         }
       }
+      // We always ensure the status is Pending after any payment is added
 
       toast({
         title: "Payment added successfully",
