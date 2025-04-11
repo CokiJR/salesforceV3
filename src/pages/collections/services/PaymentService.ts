@@ -215,9 +215,9 @@ export class PaymentService {
   static async getTotalPaymentsByCollectionId(collectionId: string): Promise<number> {
     const { data, error } = await supabase
       .from('payments')
-      .select('amount')
+      .select('amount, status')
       .eq('collection_id', collectionId)
-      .eq('status', 'Completed');
+      .in('status', ['Completed', 'Pending']);
     
     if (error) {
       console.error('Error fetching total payments:', error);

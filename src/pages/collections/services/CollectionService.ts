@@ -160,6 +160,28 @@ export class CollectionService {
     }
   }
 
+  static async markAsPending(id: string): Promise<Collection> {
+    try {
+      const updates: Partial<Collection> = {
+        status: 'Pending'
+      };
+      
+      const { data, error } = await supabase
+        .from('collections')
+        .update(updates)
+        .eq('id', id)
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      return data as Collection;
+    } catch (error) {
+      console.error('Error marking collection as pending:', error);
+      throw error;
+    }
+  }
+
   static async importFromExcel(file: File): Promise<Collection[]> {
     try {
       const data = await this.parseExcelFile(file);

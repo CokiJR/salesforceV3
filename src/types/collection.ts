@@ -9,7 +9,7 @@ export interface Collection {
   amount: number;
   due_date: string;
   payment_date?: string;
-  status: "Paid" | "Unpaid";
+  status: "Paid" | "Unpaid" | "Pending";
   notes?: string;
   created_at: string;
   updated_at: string;

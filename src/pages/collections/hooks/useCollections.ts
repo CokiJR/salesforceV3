@@ -142,7 +142,7 @@ export function useCollections() {
     setFilters(prev => ({ ...prev, ...newFilters }));
   };
   
-  const changePaymentStatus = async (id: string, status: 'Paid' | 'Unpaid') => {
+  const changePaymentStatus = async (id: string, status: 'Paid' | 'Unpaid' | 'Pending') => {
     try {
       const updatedCollection = await updateCollection(id, { status });
       toast({

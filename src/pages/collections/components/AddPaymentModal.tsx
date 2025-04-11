@@ -186,7 +186,21 @@ export function AddPaymentModal({
         status: "Pending",
       };
 
+      // Create payment
       await PaymentService.createPayment(paymentData);
+      
+      // Update collection status to Pending
+      if (collection.status === 'Unpaid') {
+        try {
+          await supabase
+            .from('collections')
+            .update({ status: 'Pending' })
+            .eq('id', collection.id);
+        } catch (updateError) {
+          console.error('Error updating collection status:', updateError);
+          // Continue with the process even if status update fails
+        }
+      }
 
       toast({
         title: "Payment added successfully",

@@ -12,7 +12,7 @@ import { AddPaymentModal } from './AddPaymentModal';
 interface CollectionsTableProps {
   collections: Collection[];
   paymentTotals: {[key: string]: number};
-  onChangeStatus: (id: string, status: 'Paid' | 'Unpaid') => Promise<void>;
+  onChangeStatus: (id: string, status: 'Paid' | 'Unpaid' | 'Pending') => Promise<void>;
   onPaymentAdded: () => void;
 }
 
@@ -77,18 +77,26 @@ export function CollectionsTable({
                     <Badge className={
                       collection.status === 'Paid' 
                         ? 'bg-green-100 text-green-800 hover:bg-green-200' 
+                        : collection.status === 'Pending'
+                          ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
                         : collection.status === 'Unpaid' && paymentTotals[collection.id] > 0
-                          ? 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
+                          ? paymentTotals[collection.id] === collection.amount
+                            ? 'bg-blue-100 text-blue-800 hover:bg-blue-200'
+                            : 'bg-yellow-100 text-yellow-800 hover:bg-yellow-200'
                           : 'bg-red-100 text-red-800 hover:bg-red-200'
                     }>
-                      {collection.status === 'Unpaid' && paymentTotals[collection.id] > 0 
-                        ? 'Partial' 
-                        : collection.status}
+                      {collection.status === 'Pending'
+                        ? 'Pending'
+                        : collection.status === 'Unpaid' && paymentTotals[collection.id] > 0 
+                          ? paymentTotals[collection.id] === collection.amount
+                            ? 'Pending' 
+                            : 'Partial'
+                          : collection.status}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      {collection.status === 'Unpaid' ? (
+                      {collection.status === 'Unpaid' || collection.status === 'Pending' ? (
                         <Button 
                           variant="outline" 
                           size="sm"
