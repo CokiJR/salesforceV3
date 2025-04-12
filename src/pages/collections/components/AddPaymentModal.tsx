@@ -56,6 +56,7 @@ const paymentSchema = z.object({
   payment_date: z.date({
     required_error: "Payment date is required",
   }),
+  payment_method: z.string().min(1, "Payment method is required"),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
@@ -145,6 +146,7 @@ export function AddPaymentModal({
       bank_account_id: "",
       amount: remainingAmount,
       payment_date: new Date(),
+      payment_method: "Cash",
     },
   });
 
@@ -184,6 +186,7 @@ export function AddPaymentModal({
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
         status: "Pending",
+        payment_method: values.payment_method,
       };
 
       // Create payment
@@ -195,7 +198,10 @@ export function AddPaymentModal({
         try {
           await supabase
             .from('collections')
-            .update({ status: 'Pending' })
+            .update({ 
+              status: 'Pending',
+              payment_method: values.payment_method 
+            })
             .eq('id', collection.id);
         } catch (updateError) {
           console.error('Error updating collection status:', updateError);
@@ -355,6 +361,33 @@ export function AddPaymentModal({
                       />
                     </PopoverContent>
                   </Popover>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="payment_method"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Payment Method</FormLabel>
+                  <FormControl>
+                    <Select
+                      onValueChange={field.onChange}
+                      defaultValue={field.value}
+                      value={field.value}
+                    >
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Giro">Giro</SelectItem>
+                        <SelectItem value="Transfer Bank">Transfer Bank</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

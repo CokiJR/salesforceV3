@@ -18,6 +18,7 @@ export interface Collection {
   transaction?: Transaction;
   sync_status?: string;
   invoice_date?: string;
+  payment_method?: string;
 }
 
 export interface CollectionFilters {
@@ -55,4 +56,5 @@ export interface Payment {
   collection?: Collection;
   customer?: Customer;
   bank_account_details?: BankAccount;
+  payment_method?: string;
 }

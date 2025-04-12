@@ -111,6 +111,11 @@ export class PaymentService {
       throw new Error('Bank account ID is required');
     }
 
+    // Ensure payment method is set
+    if (!payment.payment_method) {
+      payment.payment_method = 'Cash'; // Default to Cash if not specified
+    }
+
     const { data, error } = await supabase
       .from('payments')
       .insert(payment)

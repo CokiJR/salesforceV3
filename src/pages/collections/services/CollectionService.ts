@@ -133,7 +133,7 @@ export class CollectionService {
     }
   }
 
-  static async markAsPaid(id: string, transactionId?: string): Promise<Collection> {
+  static async markAsPaid(id: string, transactionId?: string, paymentMethod?: string): Promise<Collection> {
     try {
       const updates: Partial<Collection> = {
         status: 'Paid',
@@ -142,6 +142,10 @@ export class CollectionService {
       
       if (transactionId) {
         updates.transaction_id = transactionId;
+      }
+
+      if (paymentMethod) {
+        updates.payment_method = paymentMethod;
       }
       
       const { data, error } = await supabase
