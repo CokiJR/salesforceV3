@@ -104,7 +104,9 @@ export default function Payments() {
                   <TableRow>
                     <TableHead>Invoice Number</TableHead>
                     <TableHead>Customer</TableHead>
+                    <TableHead>Payment Method</TableHead>
                     <TableHead>Bank Account</TableHead>
+                    <TableHead>Giro Number</TableHead>
                     <TableHead>Amount</TableHead>
                     <TableHead>Payment Date</TableHead>
                     <TableHead>Status</TableHead>
@@ -118,6 +120,7 @@ export default function Payments() {
                         {payment.collection?.invoice_number || 'N/A'}
                       </TableCell>
                       <TableCell>{payment.collection?.customer_name || 'N/A'}</TableCell>
+                      <TableCell>{payment.payment_method || 'N/A'}</TableCell>
                       <TableCell>
                         {payment.bank_account_details ? (
                           <span>
@@ -127,6 +130,7 @@ export default function Payments() {
                           </span>
                         ) : 'N/A'}
                       </TableCell>
+                      <TableCell>{payment.giro_number || '-'}</TableCell>
                       <TableCell>
                         {new Intl.NumberFormat('id-ID', {
                           style: 'currency',

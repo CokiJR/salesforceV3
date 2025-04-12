@@ -57,4 +57,5 @@ export interface Payment {
   customer?: Customer;
   bank_account_details?: BankAccount;
   payment_method?: string;
+  giro_number?: string;
 }

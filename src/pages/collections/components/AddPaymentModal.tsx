@@ -51,12 +51,13 @@ interface AddPaymentModalProps {
 }
 
 const paymentSchema = z.object({
-  bank_account_id: z.string().min(1, "Bank account is required"),
+  payment_method: z.string().min(1, "Payment method is required"),
+  bank_account_id: z.string().optional(),
+  giro_number: z.string().optional(),
   amount: z.number().positive("Amount must be positive"),
   payment_date: z.date({
     required_error: "Payment date is required",
   }),
-  payment_method: z.string().min(1, "Payment method is required"),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
@@ -143,10 +144,11 @@ export function AddPaymentModal({
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
     defaultValues: {
+      payment_method: "Cash",
       bank_account_id: "",
+      giro_number: "",
       amount: remainingAmount,
       payment_date: new Date(),
-      payment_method: "Cash",
     },
   });
 
@@ -155,13 +157,17 @@ export function AddPaymentModal({
     form.setValue("amount", remainingAmount);
   }, [remainingAmount, form]);
 
-  // Set first bank account when bank accounts are loaded
+  // Set first bank account when bank accounts are loaded and payment method requires it
   useEffect(() => {
-    if (bankAccounts.length > 0) {
+    const paymentMethod = form.getValues("payment_method");
+    if (bankAccounts.length > 0 && (paymentMethod === "Transfer Bank" || paymentMethod === "Giro")) {
       console.log("Setting default bank account:", bankAccounts[0].id);
       form.setValue("bank_account_id", bankAccounts[0].id);
     }
   }, [bankAccounts, form]);
+  
+  // Watch payment method to show/hide fields conditionally
+  const paymentMethod = form.watch("payment_method");
 
   const onSubmit = async (values: PaymentFormValues) => {
     if (values.amount > remainingAmount) {
@@ -175,18 +181,39 @@ export function AddPaymentModal({
     try {
       setIsSubmitting(true);
 
+      // Validate bank account if payment method requires it
+      if ((values.payment_method === "Transfer Bank" || values.payment_method === "Giro") && !values.bank_account_id) {
+        form.setError("bank_account_id", {
+          type: "manual",
+          message: "Bank account is required for this payment method",
+        });
+        return;
+      }
+      
+      // Validate giro number if payment method is Giro
+      if (values.payment_method === "Giro" && !values.giro_number) {
+        form.setError("giro_number", {
+          type: "manual",
+          message: "Giro number is required for Giro payment method",
+        });
+        return;
+      }
+      
       // Find the selected bank account to get its account number
-      const selectedBankAccount = bankAccounts.find(account => account.id === values.bank_account_id);
+      const selectedBankAccount = values.bank_account_id 
+        ? bankAccounts.find(account => account.id === values.bank_account_id)
+        : undefined;
       
       const paymentData: Omit<Payment, "id" | "created_at" | "updated_at"> = {
         collection_id: collection.id,
         customer_id: collection.customer_id,
-        bank_account_id: values.bank_account_id,
+        bank_account_id: values.bank_account_id || null,
         account_number: selectedBankAccount?.account_number, // Save the account number
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
         status: "Pending",
         payment_method: values.payment_method,
+        giro_number: values.payment_method === "Giro" ? values.giro_number : undefined,
       };
 
       // Create payment
@@ -264,10 +291,10 @@ export function AddPaymentModal({
 
             <FormField
               control={form.control}
-              name="bank_account_id"
+              name="payment_method"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Bank Account</FormLabel>
+                  <FormLabel>Payment Method</FormLabel>
                   <FormControl>
                     <Select
                       onValueChange={field.onChange}
@@ -275,25 +302,12 @@ export function AddPaymentModal({
                       value={field.value}
                     >
                       <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select a bank account" />
+                        <SelectValue placeholder="Select payment method" />
                       </SelectTrigger>
                       <SelectContent>
-                        {isLoadingBankAccounts ? (
-                          <SelectItem value="loading" disabled>
-                            Loading accounts...
-                          </SelectItem>
-                        ) : bankAccounts.length === 0 ? (
-                          <SelectItem value="none" disabled>
-                            No bank accounts found
-                          </SelectItem>
-                        ) : (
-                          bankAccounts.map((account) => (
-                            <SelectItem key={account.id} value={account.id}>
-                              <span className="font-medium">{account.bank_name}</span> - <span className="text-muted-foreground">{account.account_number}</span> (
-                              {account.account_holder_name})
-                            </SelectItem>
-                          ))
-                        )}
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Transfer Bank">Transfer Bank</SelectItem>
+                        <SelectItem value="Giro">Giro</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormControl>
@@ -301,6 +315,67 @@ export function AddPaymentModal({
                 </FormItem>
               )}
             />
+
+            {(paymentMethod === "Transfer Bank" || paymentMethod === "Giro") && (
+              <FormField
+                control={form.control}
+                name="bank_account_id"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Bank Account</FormLabel>
+                    <FormControl>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select a bank account" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {isLoadingBankAccounts ? (
+                            <SelectItem value="loading" disabled>
+                              Loading accounts...
+                            </SelectItem>
+                          ) : bankAccounts.length === 0 ? (
+                            <SelectItem value="none" disabled>
+                              No bank accounts found
+                            </SelectItem>
+                          ) : (
+                            bankAccounts.map((account) => (
+                              <SelectItem key={account.id} value={account.id}>
+                                <span className="font-medium">{account.bank_name}</span> - <span className="text-muted-foreground">{account.account_number}</span> (
+                                {account.account_holder_name})
+                              </SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+
+            {paymentMethod === "Giro" && (
+              <FormField
+                control={form.control}
+                name="giro_number"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Giro Number</FormLabel>
+                    <FormControl>
+                      <Input
+                        placeholder="Enter giro number"
+                        {...field}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
 
             <FormField
               control={form.control}
@@ -366,32 +441,7 @@ export function AddPaymentModal({
               )}
             />
 
-            <FormField
-              control={form.control}
-              name="payment_method"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Payment Method</FormLabel>
-                  <FormControl>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                      value={field.value}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select payment method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Giro">Giro</SelectItem>
-                        <SelectItem value="Transfer Bank">Transfer Bank</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+
 
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
