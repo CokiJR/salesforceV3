@@ -75,12 +75,13 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
         setPreviewData(formattedData);
         setIsLoading(false);
 
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error parsing Excel file:', error);
         toast({
           variant: "destructive",
-          title: "Error parsing file",
-          description: "Could not parse the Excel file. Please check the format.",
+          title: "Error saat memproses file",
+          description: error.message || "Tidak dapat memproses file Excel. Silakan periksa format file.",
+          duration: 5000, // Tampilkan pesan lebih lama agar pengguna bisa membaca
         });
         setIsLoading(false);
       }
@@ -89,8 +90,9 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
     reader.onerror = () => {
       toast({
         variant: "destructive",
-        title: "Error reading file",
-        description: "Could not read the file. Please try again.",
+        title: "Error membaca file",
+        description: "Tidak dapat membaca file. Silakan coba lagi.",
+        duration: 5000,
       });
       setIsLoading(false);
     };
@@ -102,8 +104,9 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
     if (!file) {
       toast({
         variant: "destructive",
-        title: "No file selected",
-        description: "Please select a file to import.",
+        title: "Tidak ada file dipilih",
+        description: "Silakan pilih file untuk diimpor.",
+        duration: 5000,
       });
       return;
     }
@@ -114,8 +117,8 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
       await CollectionService.importFromExcel(file);
       
       toast({
-        title: "Import successful",
-        description: `Successfully imported ${previewData.length} collections.`,
+        title: "Import berhasil",
+        description: `Berhasil mengimpor ${previewData.length} koleksi.`,
       });
       
       onImportComplete();
@@ -125,8 +128,9 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
       console.error('Import error:', error);
       toast({
         variant: "destructive",
-        title: "Import failed",
-        description: error.message || "Failed to import collections.",
+        title: "Import gagal",
+        description: error.message || "Gagal mengimpor koleksi.",
+        duration: 5000, // Tampilkan pesan lebih lama agar pengguna bisa membaca
       });
     } finally {
       setIsImporting(false);
@@ -155,7 +159,7 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
 
   const renderPreviewTable = () => {
     if (previewData.length === 0) {
-      return <p className="text-center text-muted-foreground py-4">No data to preview</p>;
+      return <p className="text-center text-muted-foreground py-4">Tidak ada data untuk ditampilkan</p>;
     }
 
     return (
@@ -197,16 +201,16 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="sm:max-w-3xl">
         <DialogHeader>
-          <DialogTitle>Import Collections</DialogTitle>
+          <DialogTitle>Import Koleksi</DialogTitle>
           <DialogDescription>
-            Upload an Excel file to import collections. You can download a template to see the required format.
+            Unggah file Excel untuk mengimpor koleksi. Anda dapat mengunduh template untuk melihat format yang diperlukan.
           </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-4">
           <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-end">
             <div className="space-y-2 flex-1">
-              <Label htmlFor="file-input">Select Excel File</Label>
+              <Label htmlFor="file-input">Pilih File Excel</Label>
               <input
                 id="file-input"
                 type="file"
@@ -224,12 +228,12 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
               className="w-full sm:w-auto"
             >
               <DownloadIcon className="w-4 h-4 mr-2" />
-              Download Template
+              Unduh Template
             </Button>
           </div>
 
           <Card className="p-4">
-            <h3 className="font-medium mb-2">Preview</h3>
+            <h3 className="font-medium mb-2">Pratinjau</h3>
             {isLoading ? (
               <div className="flex justify-center py-8">
                 <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
@@ -242,7 +246,7 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
         
         <DialogFooter>
           <Button variant="outline" onClick={onClose} disabled={isImporting}>
-            Cancel
+            Batal
           </Button>
           <Button 
             onClick={handleImport}
@@ -251,12 +255,12 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
             {isImporting ? (
               <>
                 <div className="animate-spin mr-2 h-4 w-4 border-2 border-b-transparent rounded-full"></div>
-                Importing...
+                Mengimpor...
               </>
             ) : (
               <>
                 <UploadIcon className="w-4 h-4 mr-2" />
-                Import Collections
+                Import Koleksi
               </>
             )}
           </Button>

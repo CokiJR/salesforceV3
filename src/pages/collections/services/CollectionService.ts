@@ -191,23 +191,61 @@ export class CollectionService {
       const data = await this.parseExcelFile(file);
       
       if (!data || data.length === 0) {
-        throw new Error('No data found in the Excel file');
+        throw new Error('Tidak ada data ditemukan dalam file Excel');
       }
       
-      // Format the data for insertion
-      const collectionsToInsert = data.map(row => {
-        return {
+      // Validasi kolom yang diperlukan
+      const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
+      const missingColumns = [];
+      
+      // Periksa apakah data memiliki semua kolom yang diperlukan
+      if (data.length > 0) {
+        const firstRow = data[0];
+        for (const col of requiredColumns) {
+          if (firstRow[col as keyof typeof firstRow] === undefined) {
+            missingColumns.push(col);
+          }
+        }
+      }
+      
+      if (missingColumns.length > 0) {
+        throw new Error(`File yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}`);
+      }
+      
+      // Format the data for insertion with only required fields
+      const collectionsToInsert = [];
+      
+      // Process each row and calculate due_date based on customer's payment_term
+      for (const row of data) {
+        // Get customer data to retrieve payment_term
+        const { data: customerData, error: customerError } = await supabase
+          .from('customers')
+          .select('payment_term')
+          .eq('id', row.customer_id)
+          .single();
+        
+        if (customerError) {
+          console.warn(`Customer not found for ID: ${row.customer_id}. Using default payment term.`);
+        }
+        
+        // Parse invoice date
+        const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
+        
+        // Calculate due date based on payment term
+        let dueDate = new Date(invoiceDate);
+        const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
+        dueDate.setDate(dueDate.getDate() + paymentTerm);
+        
+        collectionsToInsert.push({
+          invoice_date: invoiceDate.toISOString(),
           invoice_number: row.invoice_number || `INV-${Date.now()}`,
-          customer_name: row.customer_name,
           customer_id: row.customer_id || '00000000-0000-0000-0000-000000000000',
+          customer_name: row.customer_name,
           amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
-          due_date: new Date(row.due_date).toISOString(),
-          status: row.status || 'Unpaid',
-          notes: row.notes,
-          bank_account: row.bank_account,
-          invoice_date: row.invoice_date ? new Date(row.invoice_date).toISOString() : new Date().toISOString()
-        };
-      });
+          due_date: dueDate.toISOString(),
+          status: 'Unpaid'
+        });
+      }
       
       // Insert the collections
       const { data: insertedData, error } = await supabase
@@ -274,20 +312,33 @@ export class CollectionService {
     try {
       const sampleData = [
         {
-          'invoice_number': 'INV-001',
-          'customer_name': 'ACME Corporation',
-          'amount': 1000,
-          'due_date': '2023-12-31',
-          'status': 'Unpaid',
-          'notes': 'Sample note',
-          'bank_account': '123-456-789',
-          'invoice_date': '2023-12-01'
+          'invoice_number': 'INV-001', // Kolom wajib
+          'customer_name': 'ACME Corporation', // Kolom wajib
+          'amount': 1000, // Kolom wajib
+          'invoice_date': '2023-12-01', // Opsional
+          'customer_id': '00000000-0000-0000-0000-000000000000', // Opsional
+          'status': 'Unpaid', // Opsional
+          'notes': 'Catatan tambahan', // Opsional
+          'bank_account': 'BCA' // Opsional
+          // due_date dihitung otomatis berdasarkan payment_term pelanggan
         }
       ];
       
       const worksheet = XLSX.utils.json_to_sheet(sampleData);
       const workbook = XLSX.utils.book_new();
       XLSX.utils.book_append_sheet(workbook, worksheet, 'Template');
+      
+      // Tambahkan catatan tentang kolom wajib dan perhitungan due_date
+      const notes = [
+        'CATATAN PENTING:',
+        '1. Kolom wajib: invoice_number, customer_name, amount',
+        '2. due_date akan dihitung otomatis berdasarkan payment_term pelanggan',
+        '3. Jika customer_id tidak diisi, sistem akan mencoba mencocokkan berdasarkan customer_name'
+      ];
+      
+      for (let i = 0; i < notes.length; i++) {
+        XLSX.utils.sheet_add_aoa(worksheet, [[notes[i]]], { origin: `A${i+3}` });
+      }
       
       const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
       
@@ -321,34 +372,53 @@ export class CollectionService {
           
           const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, any>[];
           
-          // Map the data to our CollectionImportFormat
+          if (jsonData.length === 0) {
+            reject(new Error('File tidak memiliki data'));
+            return;
+          }
+          
+          // Validasi kolom yang diperlukan
+          const firstRow = jsonData[0];
+          const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
+          const alternativeColumns = {
+            'invoice_number': ['Invoice Number', 'InvoiceNumber'],
+            'customer_name': ['Customer Name', 'CustomerName'],
+            'amount': ['Amount']
+          };
+          
+          const missingColumns = [];
+          
+          for (const col of requiredColumns) {
+            const alternatives = alternativeColumns[col as keyof typeof alternativeColumns] || [];
+            const hasColumn = col in firstRow || alternatives.some(alt => alt in firstRow);
+            
+            if (!hasColumn) {
+              missingColumns.push(col);
+            }
+          }
+          
+          if (missingColumns.length > 0) {
+            reject(new Error(`File yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}`));
+            return;
+          }
+          
+          // Map the data to our CollectionImportFormat with only required fields
           const mappedData = jsonData.map(row => {
             // Handle different possible column names
             // Prioritize snake_case format first to match the template
+            const invoiceDate = row.invoice_date || row['Invoice Date'] || row.InvoiceDate || new Date().toISOString();
             const invoiceNumber = row.invoice_number || row['Invoice Number'] || row.InvoiceNumber || '';
+            const customerId = row.customer_id || row['Customer ID'] || row.CustomerId || '00000000-0000-0000-0000-000000000000';
             const customerName = row.customer_name || row['Customer Name'] || row.CustomerName || '';
             const amount = Number(row.amount || row.Amount || 0);
             
-            let dueDate = '';
-            try {
-              const rawDueDate = row.due_date || row['Due Date'] || row.DueDate;
-              if (rawDueDate) {
-                // Try to parse as date 
-                dueDate = new Date(rawDueDate).toISOString();
-              }
-            } catch (e) {
-              console.error('Date parsing error:', e);
-            }
-            
             return {
+              invoice_date: invoiceDate,
               invoice_number: invoiceNumber,
+              customer_id: customerId,
               customer_name: customerName,
               amount: amount,
-              due_date: dueDate,
-              status: (row.status || row.Status || 'Unpaid') === 'Paid' ? 'Paid' : 'Unpaid',
-              notes: row.notes || row.Notes || '',
-              bank_account: row.bank_account || row['Bank Account'] || '',
-              invoice_date: row.invoice_date || row['Invoice Date'] || ''
+              status: 'Unpaid'
             } as CollectionImportFormat;
           });
           
@@ -358,7 +428,7 @@ export class CollectionService {
         }
       };
       
-      reader.onerror = () => reject(new Error('Failed to read file'));
+      reader.onerror = () => reject(new Error('Gagal membaca file'));
       reader.readAsArrayBuffer(file);
     });
   }

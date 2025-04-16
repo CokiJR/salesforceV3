@@ -34,12 +34,12 @@ export interface CollectionImportFormat {
   invoice_number: string;
   customer_name: string;
   amount: number | string;
-  due_date: string;
   status?: "Paid" | "Unpaid";
   notes?: string;
   bank_account?: string;
   invoice_date?: string;
   customer_id?: string; // Added customer_id as optional for imports
+  // due_date removed as it will be calculated automatically based on customer's payment_term
 }
 
 export interface Payment {
