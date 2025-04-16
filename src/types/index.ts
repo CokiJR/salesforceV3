@@ -96,6 +96,14 @@ export interface RouteStop {
   visited: boolean; // Added visited flag
 }
 
+export interface Warehouse {
+  code: string;
+  name: string;
+  location: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface DailyRoute {
   id: string;
   salesperson_id: string;

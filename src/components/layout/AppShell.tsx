@@ -29,6 +29,7 @@ import {
   Download,
   CreditCard,
   Receipt,
+  Warehouse,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -153,6 +154,14 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                   <Link to="/dashboard/products" className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
                     <span>Products</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/dashboard/warehouses" className="flex items-center gap-2">
+                    <Warehouse className="h-5 w-5" />
+                    <span>Warehouses</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>

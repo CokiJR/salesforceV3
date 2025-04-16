@@ -11,6 +11,9 @@ import { EmptyRoutesState } from "./routes/components/EmptyRoutesState";
 import { AutomatedRoutePanel } from "./routes/components/AutomatedRoutePanel";
 import { startOfWeek } from "date-fns";
 
+// Warehouses
+import Warehouses from "./Warehouses";
+
 const RoutesPage = () => {
   // Initialize to start of current week
   const [date, setDate] = useState<Date>(() => {

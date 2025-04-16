@@ -24,6 +24,7 @@ import RoutesPage from "@/pages/Routes"; // Renamed import to avoid conflict
 import Transactions from "@/pages/Transactions";
 import Collections from "@/pages/Collections";
 import BankAccounts from "@/pages/BankAccounts";
+import Warehouses from "@/pages/Warehouses";
 import NotFound from "./pages/NotFound";
 import Index from "@/pages/Index";
 
@@ -119,6 +120,8 @@ const App = () => {
                     <Route path="payments/add" element={<AddPayment />} />
 
                     <Route path="bank-accounts" element={<BankAccounts />} />
+
+                    <Route path="warehouses" element={<Warehouses />} />
 
                     <Route path="transactions" element={<Transactions />} />
                     <Route
