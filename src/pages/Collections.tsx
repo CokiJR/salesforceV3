@@ -27,7 +27,8 @@ export default function Collections() {
     updateFilters,
     changePaymentStatus,
     refresh,
-    importFromExcel
+    importFromExcel,
+    exportToExcel
   } = useCollections();
   
   const [isImporting, setIsImporting] = useState(false);
@@ -223,10 +224,7 @@ export default function Collections() {
       <ExportDialog 
         isOpen={showExportDialog}
         onClose={() => setShowExportDialog(false)}
-        onExport={(dateRange) => {
-          const { exportToExcel } = useCollections();
-          exportToExcel(dateRange);
-        }}
+        onExport={(dateRange) => exportToExcel(dateRange)}
       />
       
       <div className="flex items-center justify-between">
