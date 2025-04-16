@@ -9,7 +9,7 @@ import { toast } from '@/components/ui/use-toast';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarIcon, Loader2 } from 'lucide-react';
-import { format } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { supabase } from '@/integrations/supabase/client';
 import { Collection } from '@/types/collection';
 import { CollectionService } from './services/CollectionService';
@@ -22,14 +22,42 @@ export default function AddCollection() {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState('');
   const [amount, setAmount] = useState('');
+  const [invoiceDate, setInvoiceDate] = useState<Date>(new Date());
   const [dueDate, setDueDate] = useState<Date>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingCustomers, setIsLoadingCustomers] = useState(true);
+  const [selectedCustomer, setSelectedCustomer] = useState<Customer | null>(null);
   
   // Fetch customers on component mount
   useEffect(() => {
     fetchCustomers();
   }, []);
+  
+  // Calculate due date based on invoice date and payment terms when customer or invoice date changes
+  useEffect(() => {
+    if (selectedCustomer && invoiceDate) {
+      calculateDueDate();
+    }
+  }, [selectedCustomer, invoiceDate]);
+  
+  const calculateDueDate = () => {
+    if (!selectedCustomer || !invoiceDate) return;
+    
+    // Default to 30 days if payment_term is not specified
+    let daysToAdd = 30;
+    
+    // Parse payment term if available (assuming format like "Net 30", "Net 60", etc.)
+    if (selectedCustomer.payment_term) {
+      const termMatch = selectedCustomer.payment_term.match(/\d+/);
+      if (termMatch && termMatch[0]) {
+        daysToAdd = parseInt(termMatch[0], 10);
+      }
+    }
+    
+    // Calculate new due date
+    const newDueDate = addDays(invoiceDate, daysToAdd);
+    setDueDate(newDueDate);
+  };
   
   const fetchCustomers = async () => {
     try {
@@ -80,7 +108,7 @@ export default function AddCollection() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!invoiceNumber || !selectedCustomerId || !amount || !dueDate) {
+    if (!invoiceNumber || !selectedCustomerId || !amount || !dueDate || !invoiceDate) {
       toast({
         variant: "destructive",
         title: "Missing information",
@@ -92,9 +120,6 @@ export default function AddCollection() {
     try {
       setIsSubmitting(true);
       
-      // Find selected customer to get customer_name
-      const selectedCustomer = customers.find(c => c.id === selectedCustomerId);
-      
       if (!selectedCustomer) {
         throw new Error("Selected customer not found");
       }
@@ -104,6 +129,7 @@ export default function AddCollection() {
         customer_name: selectedCustomer.name,
         customer_id: selectedCustomerId,
         amount: parseFloat(amount),
+        invoice_date: invoiceDate.toISOString(),
         due_date: dueDate.toISOString(),
         status: 'Unpaid' as const,
       };
@@ -194,7 +220,15 @@ export default function AddCollection() {
                     <span className="text-muted-foreground">Loading customers...</span>
                   </div>
                 ) : (
-                  <Select value={selectedCustomerId} onValueChange={setSelectedCustomerId} required>
+                  <Select 
+                  value={selectedCustomerId} 
+                  onValueChange={(value) => {
+                    setSelectedCustomerId(value);
+                    const customer = customers.find(c => c.id === value);
+                    setSelectedCustomer(customer || null);
+                  }} 
+                  required
+                >
                     <SelectTrigger>
                       <SelectValue placeholder="Select a customer" />
                     </SelectTrigger>
@@ -212,16 +246,28 @@ export default function AddCollection() {
             
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <Label htmlFor="amount">Amount *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  placeholder="0.00"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  required
-                />
+                <Label htmlFor="invoice-date">Invoice Date *</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className={`w-full justify-start text-left ${!invoiceDate ? 'text-muted-foreground' : ''}`}
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {invoiceDate ? format(invoiceDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0">
+                    <Calendar
+                      mode="single"
+                      selected={invoiceDate}
+                      onSelect={(date) => {
+                        setInvoiceDate(date || new Date());
+                      }}
+                      initialFocus
+                    />
+                  </PopoverContent>
+                </Popover>
               </div>
               <div className="space-y-2">
                 <Label>Due Date *</Label>
@@ -244,6 +290,26 @@ export default function AddCollection() {
                     />
                   </PopoverContent>
                 </Popover>
+                {selectedCustomer?.payment_term && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Auto-calculated based on {selectedCustomer.payment_term_description || selectedCustomer.payment_term}
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="amount">Amount *</Label>
+                <Input
+                  id="amount"
+                  type="number"
+                  step="0.01"
+                  placeholder="0.00"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  required
+                />
               </div>
             </div>
           </CardContent>
