@@ -7,6 +7,7 @@ import { BarChart3, Users, Package, Map, ShoppingCart, CalendarDays } from "luci
 import SyncManager from "@/components/sync/SyncManager";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
+import { InventorySummary } from "@/components/inventory/InventorySummary";
 
 const Dashboard = () => {
   const { user } = useAuthentication();
@@ -86,6 +87,7 @@ const Dashboard = () => {
   const navigateToProducts = () => navigate("/dashboard/products");
   const navigateToOrders = () => navigate("/dashboard/orders");
   const navigateToRoutes = () => navigate("/dashboard/routes");
+  const navigateToInventory = () => navigate("/dashboard/inventory");
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -195,6 +197,8 @@ const Dashboard = () => {
             )}
           </CardContent>
         </Card>
+        
+        <InventorySummary onNavigate={() => navigate("/dashboard/inventory")} />
         
         <Card>
           <CardHeader>

@@ -167,6 +167,14 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <Link to="/dashboard/inventory" className="flex items-center gap-2">
+                    <Package className="h-5 w-5" />
+                    <span>Inventory</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <Link to="/dashboard/orders" className="flex items-center gap-2">
                     <ShoppingCart className="h-5 w-5" />
                     <span>Orders</span>
