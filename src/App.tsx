@@ -25,6 +25,7 @@ import Transactions from "@/pages/Transactions";
 import Collections from "@/pages/Collections";
 import BankAccounts from "@/pages/BankAccounts";
 import Warehouses from "@/pages/Warehouses";
+import Inventory from "@/pages/Inventory";
 import NotFound from "./pages/NotFound";
 import Index from "@/pages/Index";
 
@@ -37,6 +38,7 @@ import AddTransaction from "@/pages/transactions/AddTransaction";
 import AddCollection from "@/pages/collections/AddCollection";
 import AddPayment from "@/pages/collections/AddPayment";
 import Payments from "@/pages/collections/Payments";
+import AddInventory from "@/pages/inventory/AddInventory";
 
 // Import the new detail view components
 import CustomerDetail from "@/pages/customers/CustomerDetail";
@@ -122,6 +124,9 @@ const App = () => {
                     <Route path="bank-accounts" element={<BankAccounts />} />
 
                     <Route path="warehouses" element={<Warehouses />} />
+
+                    <Route path="inventory" element={<Inventory />} />
+                    <Route path="inventory/add" element={<AddInventory />} />
 
                     <Route path="transactions" element={<Transactions />} />
                     <Route
