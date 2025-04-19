@@ -31,6 +31,7 @@ import {
   Receipt,
   Warehouse,
   DollarSign,
+  FileCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -195,6 +196,14 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                   <Link to="/dashboard/collections" className="flex items-center gap-2">
                     <Receipt className="h-5 w-5" />
                     <span>Collections</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/dashboard/collections/giro" className="flex items-center gap-2">
+                    <FileCheck className="h-5 w-5" />
+                    <span>Giro</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
