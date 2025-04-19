@@ -26,6 +26,7 @@ import Collections from "@/pages/Collections";
 import BankAccounts from "@/pages/BankAccounts";
 import Warehouses from "@/pages/Warehouses";
 import Inventory from "@/pages/Inventory";
+import Pricing from "@/pages/Pricing";
 import NotFound from "./pages/NotFound";
 import Index from "@/pages/Index";
 
@@ -127,6 +128,8 @@ const App = () => {
 
                     <Route path="inventory" element={<Inventory />} />
                     <Route path="inventory/add" element={<AddInventory />} />
+
+                    <Route path="pricing" element={<Pricing />} />
 
                     <Route path="transactions" element={<Transactions />} />
                     <Route

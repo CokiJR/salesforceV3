@@ -11,12 +11,15 @@ import { OrderSummaryPanel } from "./components/OrderSummaryPanel";
 import { OrderItemsTable } from "./components/OrderItemsTable";
 import { OrderForm, OrderFormValues } from "./components/OrderForm";
 import { useOrderFormData } from "./hooks/useOrderFormData";
+import { usePricingForOrders } from "./hooks/usePricingForOrders";
 import { OrderItemWithDetails, calculateOrderTotal } from "./utils/orderFormUtils";
+
 
 export default function AddOrder() {
   const { user } = useAuthentication();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { customers, products, loadingItems } = useOrderFormData();
+  const { getProductPrice, loading: loadingPricing } = usePricingForOrders();
   const [orderItems, setOrderItems] = useState<OrderItemWithDetails[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
@@ -59,12 +62,29 @@ export default function AddOrder() {
       return;
     }
     
+    // Get price from pricing system
+    // Check for special price for this customer and product
+    const customerId = preselectedCustomer || "";
+    const productPrice = getProductPrice(product.sku, customerId, quantity);
+    
+    // If no price found in pricing system, show error
+    if (productPrice === null) {
+      toast({
+        variant: "destructive",
+        title: "Price not found",
+        description: "No pricing information available for this product. Please set up pricing first.",
+      });
+      return;
+    }
+    
+    const finalPrice = productPrice;
+    
     const newItem = {
       product_id: product.id,
       product: product,
       quantity: quantity,
-      price: product.price,
-      total: product.price * quantity
+      price: finalPrice,
+      total: finalPrice * quantity
     };
     
     setOrderItems([...orderItems, newItem]);

@@ -30,6 +30,7 @@ import {
   CreditCard,
   Receipt,
   Warehouse,
+  DollarSign,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -170,6 +171,14 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                   <Link to="/dashboard/inventory" className="flex items-center gap-2">
                     <Package className="h-5 w-5" />
                     <span>Inventory</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
+                  <Link to="/dashboard/pricing" className="flex items-center gap-2">
+                    <DollarSign className="h-5 w-5" />
+                    <span>Pricing</span>
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
