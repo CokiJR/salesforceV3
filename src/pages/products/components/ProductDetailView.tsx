@@ -184,10 +184,6 @@ export function ProductDetailView({ product, isLoading }: ProductDetailViewProps
         <CardContent className="space-y-6">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Price</p>
-              <p className="text-xl font-semibold">{formatCurrency(product.price)}</p>
-            </div>
-            <div>
               <p className="text-sm font-medium text-muted-foreground">Category</p>
               <p>{product.category}</p>
             </div>

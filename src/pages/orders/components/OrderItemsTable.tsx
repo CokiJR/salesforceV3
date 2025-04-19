@@ -55,7 +55,7 @@ export function OrderItemsTable({
           <SelectContent>
             {products.map((product) => (
               <SelectItem key={product.id} value={product.id}>
-                {product.name} - {formatCurrency(product.price)} / {product.unit}
+                {product.name} ({product.unit})
               </SelectItem>
             ))}
           </SelectContent>
