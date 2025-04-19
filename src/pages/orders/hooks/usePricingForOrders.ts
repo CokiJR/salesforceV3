@@ -87,16 +87,17 @@ export const usePricingForOrders = () => {
       const today = new Date().toISOString().split('T')[0];
       
       // Find active special price for this customer and product
-      const specialPrice = specialPricing.find(price => 
-        price.sku === sku && 
-        price.customer_id === customerId &&
+      const specialPrice = specialPricing.find(price => {
+        return price.sku === sku && 
+        price.customer?.id === customerId &&
         price.active &&
         price.min_qty <= quantity &&
         new Date(price.valid_from) <= new Date(today) &&
-        (!price.valid_to || new Date(price.valid_to) >= new Date(today))
-      );
+        (!price.valid_to || new Date(price.valid_to) >= new Date(today));
+      });
       
       if (specialPrice) {
+        console.log("Using special price for customer:", customerId, "product:", sku, "price:", specialPrice.special_price);
         return specialPrice.special_price;
       }
     }
