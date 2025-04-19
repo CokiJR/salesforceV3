@@ -13,13 +13,14 @@ import { OrderForm, OrderFormValues } from "./components/OrderForm";
 import { useOrderFormData } from "./hooks/useOrderFormData";
 import { usePricingForOrders } from "./hooks/usePricingForOrders";
 import { OrderItemWithDetails, calculateOrderTotal } from "./utils/orderFormUtils";
+import { AlertCircle } from "lucide-react";
 
 
 export default function AddOrder() {
   const { user } = useAuthentication();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { customers, products, loadingItems } = useOrderFormData();
-  const { getProductPrice, loading: loadingPricing } = usePricingForOrders();
+  const { getProductPrice, checkProductStock, updateInventoryForOrder, inventory, loading: loadingPricing } = usePricingForOrders();
   const [orderItems, setOrderItems] = useState<OrderItemWithDetails[]>([]);
   const [selectedProduct, setSelectedProduct] = useState<string>("");
   const [quantity, setQuantity] = useState<number>(1);
@@ -58,6 +59,23 @@ export default function AddOrder() {
         variant: "destructive",
         title: "Duplicate product",
         description: "This product is already added to the order. Please modify the quantity instead.",
+      });
+      return;
+    }
+    
+    // Check inventory stock
+    const stockInfo = checkProductStock(product.sku, quantity);
+    if (!stockInfo.inStock) {
+      toast({
+        variant: "destructive",
+        title: "Insufficient stock",
+        description: `Not enough stock available. Available: ${stockInfo.availableQuantity}, Requested: ${quantity}`,
+        action: (
+          <div className="flex items-center">
+            <AlertCircle className="h-4 w-4 mr-2" />
+            <span>Please reduce quantity or check inventory</span>
+          </div>
+        ),
       });
       return;
     }
@@ -113,6 +131,20 @@ export default function AddOrder() {
     try {
       setIsSubmitting(true);
       
+      // Check inventory stock for all items before proceeding
+      for (const item of orderItems) {
+        const stockInfo = checkProductStock(item.product.sku, item.quantity);
+        if (!stockInfo.inStock) {
+          toast({
+            variant: "destructive",
+            title: "Insufficient stock",
+            description: `Not enough stock for ${item.product.name}. Available: ${stockInfo.availableQuantity}, Requested: ${item.quantity}`,
+          });
+          setIsSubmitting(false);
+          return;
+        }
+      }
+      
       // Create order object with default status and payment_status
       const orderData = {
         customer_id: data.customer_id,
@@ -150,6 +182,17 @@ export default function AddOrder() {
       
       if (itemsError) throw itemsError;
       
+      // Update inventory quantities
+      const inventoryItems = orderItems.map(item => ({
+        sku: item.product.sku,
+        quantity: item.quantity
+      }));
+      
+      const inventoryResult = await updateInventoryForOrder(inventoryItems);
+      if (!inventoryResult.success) {
+        throw new Error(inventoryResult.error || "Failed to update inventory");
+      }
+      
       // If this came from a route stop, update the stop status to completed
       if (routeStopId) {
         const now = new Date();
@@ -171,7 +214,7 @@ export default function AddOrder() {
       
       toast({
         title: "Order created",
-        description: `Order has been created successfully.`,
+        description: `Order has been created successfully and inventory has been updated.`,
       });
       
       // If we came from a route detail, go back to it
