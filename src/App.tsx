@@ -39,6 +39,7 @@ import AddTransaction from "@/pages/transactions/AddTransaction";
 import AddCollection from "@/pages/collections/AddCollection";
 import AddPayment from "@/pages/collections/AddPayment";
 import Payments from "@/pages/collections/Payments";
+import Giro from "@/pages/collections/Giro";
 import AddInventory from "@/pages/inventory/AddInventory";
 
 // Import the new detail view components
@@ -121,6 +122,7 @@ const App = () => {
 
                     <Route path="payments" element={<Payments />} />
                     <Route path="payments/add" element={<AddPayment />} />
+                    <Route path="giro" element={<Giro />} />
 
                     <Route path="bank-accounts" element={<BankAccounts />} />
 

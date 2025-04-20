@@ -200,6 +200,14 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
               </SidebarMenuItem>
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
+                  <Link to="/dashboard/giro" className="flex items-center gap-2">
+                    <CreditCard className="h-5 w-5" />
+                    <span>Giro</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+              <SidebarMenuItem>
+                <SidebarMenuButton asChild>
                   <Link to="/dashboard/transactions" className="flex items-center gap-2">
                     <CreditCard className="h-5 w-5" />
                     <span>Transactions</span>
