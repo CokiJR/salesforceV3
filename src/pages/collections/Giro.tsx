@@ -90,8 +90,8 @@ export default function GiroPage() {
   };
 
   const handleClearGiro = (giro: Giro) => {
-    setSelectedGiro(giro);
-    setShowClearingForm(true);
+    // Navigate to the GiroClearing page instead of showing popup
+    navigate(`/dashboard/giro/clearing/${giro.id}`);
   };
 
   const handleClearingComplete = () => {
@@ -223,21 +223,7 @@ export default function GiroPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Giro Clearing Dialog */}
-      <Dialog open={showClearingForm} onOpenChange={setShowClearingForm}>
-        <DialogContent className="sm:max-w-[600px]">
-          <DialogHeader>
-            <DialogTitle>Giro Clearing</DialogTitle>
-          </DialogHeader>
-          {selectedGiro && (
-            <GiroClearing 
-              giro={selectedGiro} 
-              onComplete={handleClearingComplete} 
-              onCancel={() => setShowClearingForm(false)} 
-            />
-          )}
-        </DialogContent>
-      </Dialog>
+      {/* Giro Clearing Dialog removed - now using separate page */}
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
