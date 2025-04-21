@@ -107,8 +107,8 @@ export class PaymentService {
 
   static async createPayment(payment: Omit<Payment, 'id' | 'created_at' | 'updated_at'>): Promise<Payment> {
     // Ensure we have the required fields if payment method requires it
-    if ((payment.payment_method === 'Transfer Bank' || payment.payment_method === 'Giro') && !payment.bank_account_id) {
-      throw new Error('Bank account ID is required for Transfer Bank or Giro payment methods');
+    if (payment.payment_method === 'Transfer Bank' && !payment.bank_account_id) {
+      throw new Error('Bank account ID is required for Transfer Bank payment method');
     }
 
     // Ensure payment method is set
@@ -116,10 +116,7 @@ export class PaymentService {
       payment.payment_method = 'Cash'; // Default to Cash if not specified
     }
     
-    // Ensure giro_number is set for Giro payment method
-    if (payment.payment_method === 'Giro' && !payment.giro_number) {
-      throw new Error('Giro number is required for Giro payment method');
-    }
+
 
     const { data, error } = await supabase
       .from('payments')

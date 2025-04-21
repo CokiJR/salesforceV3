@@ -53,7 +53,7 @@ interface AddPaymentModalProps {
 const paymentSchema = z.object({
   payment_method: z.string().min(1, "Payment method is required"),
   bank_account_id: z.string().optional(),
-  giro_number: z.string().optional(),
+
   amount: z.number().positive("Amount must be positive"),
   payment_date: z.date({
     required_error: "Payment date is required",
@@ -146,7 +146,6 @@ export function AddPaymentModal({
     defaultValues: {
       payment_method: "Cash",
       bank_account_id: "",
-      giro_number: "",
       amount: remainingAmount,
       payment_date: new Date(),
     },
@@ -160,7 +159,7 @@ export function AddPaymentModal({
   // Set first bank account when bank accounts are loaded and payment method requires it
   useEffect(() => {
     const paymentMethod = form.getValues("payment_method");
-    if (bankAccounts.length > 0 && (paymentMethod === "Transfer Bank" || paymentMethod === "Giro")) {
+    if (bankAccounts.length > 0 && paymentMethod === "Transfer Bank") {
       console.log("Setting default bank account:", bankAccounts[0].id);
       form.setValue("bank_account_id", bankAccounts[0].id);
     }
@@ -182,19 +181,10 @@ export function AddPaymentModal({
       setIsSubmitting(true);
 
       // Validate bank account if payment method requires it
-      if ((values.payment_method === "Transfer Bank" || values.payment_method === "Giro") && !values.bank_account_id) {
+      if (values.payment_method === "Transfer Bank" && !values.bank_account_id) {
         form.setError("bank_account_id", {
           type: "manual",
           message: "Bank account is required for this payment method",
-        });
-        return;
-      }
-      
-      // Validate giro number if payment method is Giro
-      if (values.payment_method === "Giro" && !values.giro_number) {
-        form.setError("giro_number", {
-          type: "manual",
-          message: "Giro number is required for Giro payment method",
         });
         return;
       }
@@ -212,8 +202,7 @@ export function AddPaymentModal({
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
         status: "Pending",
-        payment_method: values.payment_method,
-        giro_number: values.payment_method === "Giro" ? values.giro_number : undefined,
+        payment_method: values.payment_method
       };
 
       // Create payment
@@ -307,7 +296,6 @@ export function AddPaymentModal({
                       <SelectContent>
                         <SelectItem value="Cash">Cash</SelectItem>
                         <SelectItem value="Transfer Bank">Transfer Bank</SelectItem>
-                        <SelectItem value="Giro">Giro</SelectItem>
                       </SelectContent>
                     </Select>
                   </FormControl>
@@ -316,7 +304,7 @@ export function AddPaymentModal({
               )}
             />
 
-            {(paymentMethod === "Transfer Bank" || paymentMethod === "Giro") && (
+            {paymentMethod === "Transfer Bank" && (
               <FormField
                 control={form.control}
                 name="bank_account_id"
@@ -358,24 +346,7 @@ export function AddPaymentModal({
               />
             )}
 
-            {paymentMethod === "Giro" && (
-              <FormField
-                control={form.control}
-                name="giro_number"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Giro Number</FormLabel>
-                    <FormControl>
-                      <Input
-                        placeholder="Enter giro number"
-                        {...field}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            )}
+
 
             <FormField
               control={form.control}
