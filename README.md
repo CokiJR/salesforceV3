@@ -1,69 +1,69 @@
-# Welcome to your Lovable project
+# 🚀 SalesForce Web App
 
-## Project info
+A web-based sales operation system designed to support and integrate with SAP Business One (SAP B1). This application facilitates streamlined sales activities, customer visits, billing collection, and inventory tracking.
 
-**URL**: https://lovable.dev/projects/87e8c33a-ae3f-4306-9119-84970be0b7d5
+---
 
-## How can I edit this code?
+## 📦 Features
 
-There are several ways of editing your application.
+- ✅ Customer & Product Master Data Sync
+- 📍 Sales Visit Scheduler (Weekly Route Automation)
+- 💳 Collection & Giro Management
+- 🧾 Invoice Integration
+- 🗃️ Inventory & Warehouse Monitoring
+- 📈 Realtime Dashboard Reporting
 
-**Use Lovable**
+---
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/87e8c33a-ae3f-4306-9119-84970be0b7d5) and start prompting.
+## 🛠️ Tech Stack
 
-Changes made via Lovable will be committed automatically to this repo.
+- ⚙️ **Frontend**: React, TypeScript, Tailwind CSS
+- 🌐 **Backend / DB**: Supabase (PostgreSQL)
+- 💻 **Dev Tools**: Visual Studio Code, GitHub, Vercel (optional)
+- ⚡ **Utilities**: Zod, React Hook Form, Lucide Icons
 
-**Use your preferred IDE**
+---
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+## 📅 Weekly Route Planner
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+Automated visit schedule for sales team based on customer cycle pattern (e.g., weekly, bi-weekly):
 
-Follow these steps:
+- `YYYY` - Every week  
+- `YTYT` - Week 1 & 3  
+- `TYTY` - Week 2 & 4  
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+---
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+## 📷 Screenshots
 
-# Step 3: Install the necessary dependencies.
-npm i
+### 🧭 Dashboard
+![Dashboard Screenshot](./screenshots/dashboard.png)
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
+### 💰 Collection Module
+![Collection Screenshot](./screenshots/collection.png)
 
-**Edit a file directly in GitHub**
+---
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+## 🔌 Integration with SAP B1
 
-**Use GitHub Codespaces**
+This app is designed to serve as a staging system between SAP B1 and field sales operations, ensuring that data is:
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Validated before being pushed to SAP
+- Maintained with user-level access controls
+- Extended with additional features outside SAP licenses
 
-## What technologies are used for this project?
+---
 
-This project is built with .
+## 📍 Future Phases
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+- 📝 Order Management (Web-to-SAP Order Sync)
+- 📦 Real-Time Stock Availability
+- 📧 Notifications (Email / WhatsApp)
 
-## How can I deploy this project?
+---
 
-Simply open [Lovable](https://lovable.dev/projects/87e8c33a-ae3f-4306-9119-84970be0b7d5) and click on Share -> Publish.
+## 👨‍💻 Author
 
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+**Hafiv Cokjr**  
+📫 cokjr.cr@gmail.com  
+💼 [LinkedIn](https://www.linkedin.com/in/hafiv-rienaldy-9272a2197/)
