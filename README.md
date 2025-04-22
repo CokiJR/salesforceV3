@@ -36,11 +36,39 @@ Automated visit schedule for sales team based on customer cycle pattern (e.g., w
 
 ## 📷 Screenshots
 
-### 🧭 Dashboard
-![Dashboard Screenshot](./screenshots/dashboard.png)
+### 🧭 Dashboard Overview
+Menampilkan ringkasan aktivitas sales, customer overdue, dan insight performa tim penjualan.
+![Dashboard](./screenshots/dashboard.png)
+
+---
 
 ### 💰 Collection Module
-![Collection Screenshot](./screenshots/collection.png)
+Form penagihan invoice yang dilakukan oleh tim sales ke customer.
+![Collection](./screenshots/collection.png)
+
+---
+
+### 🧾 Giro Management
+Pencatatan transaksi giro customer, status pencairan, dan histori clearing.
+![Giro](./screenshots/giro.png)
+
+---
+
+### 📅 Route Planning
+Penjadwalan kunjungan otomatis berdasarkan siklus mingguan pelanggan.
+![Route](./screenshots/route.png)
+
+---
+
+### 🗂️ Customer & Product Management
+Menu master data untuk pelanggan dan produk yang akan disinkronisasi ke SAP B1.
+![Master Data](./screenshots/masterdata.png)
+
+---
+
+### 🏷️ Inventory Tracking
+Pemantauan stok produk berdasarkan warehouse dan lokasi distribusi.
+![Inventory](./screenshots/inventory.png)
 
 ---
 
