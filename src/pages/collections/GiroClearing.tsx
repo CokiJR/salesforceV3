@@ -62,15 +62,22 @@ export default function GiroClearingPage() {
 
   // Update form when the remaining amount changes
   useEffect(() => {
-    form.setValue('clearing_amount', remainingAmount);
-  }, [remainingAmount, form]);
+    // Only update form with remaining amount when giro is loaded initially
+    // This prevents overriding user input when they're already on the form
+    if (giro && remainingAmount > 0 && !form.getValues('clearing_amount')) {
+      form.setValue('clearing_amount', remainingAmount);
+    }
+  }, [giro, form, remainingAmount]);
 
   const fetchGiroData = async (giroId: string) => {
     try {
       setIsLoading(true);
       const giroData = await GiroService.getGiroById(giroId);
       setGiro(giroData);
-      fetchClearingRecords(giroId);
+      
+      // Fetch clearing records after setting giro data
+      // Don't set remaining amount here, it will be calculated in fetchClearingRecords
+      await fetchClearingRecords(giroId, giroData);
     } catch (error: any) {
       console.error('Error fetching giro:', error);
       toast({
@@ -82,18 +89,27 @@ export default function GiroClearingPage() {
     }
   };
 
-  const fetchClearingRecords = async (giroId: string) => {
+  const fetchClearingRecords = async (giroId: string, currentGiro?: Giro | null) => {
     try {
       const records = await GiroService.getGiroClearing(giroId);
       setClearingRecords(records);
       
-      if (giro) {
-        // Calculate remaining amount
+      // Use the passed giro parameter or the state value
+      const giroToUse = currentGiro || giro;
+      
+      if (giroToUse) {
+        // Calculate remaining amount - include only cleared records
         const totalCleared = records
           .filter(record => record.clearing_status === 'cleared')
-          .reduce((sum, record) => sum + record.clearing_amount, 0);
+          .reduce((sum, record) => sum + Number(record.clearing_amount), 0);
         
-        setRemainingAmount(Math.max(0, giro.amount - totalCleared));
+        const remaining = Math.max(0, giroToUse.amount - totalCleared);
+        setRemainingAmount(remaining);
+        
+        // Only update form with remaining amount if it's greater than 0 and no value is set
+        if (remaining > 0 && (!form.getValues('clearing_amount') || form.getValues('clearing_amount') === 0)) {
+          form.setValue('clearing_amount', remaining);
+        }
       }
     } catch (error: any) {
       console.error('Error fetching clearing records:', error);
@@ -110,6 +126,7 @@ export default function GiroClearingPage() {
   const onSubmit = async (values: ClearingFormValues) => {
     if (!giro) return;
 
+    // Check if new clearing amount would exceed the remaining amount
     if (values.clearing_amount > remainingAmount) {
       form.setError("clearing_amount", {
         type: "manual",
@@ -117,6 +134,8 @@ export default function GiroClearingPage() {
       });
       return;
     }
+    
+    // No need to check against total cleared amount again since remainingAmount already accounts for that
 
     try {
       setIsSubmitting(true);
@@ -140,17 +159,19 @@ export default function GiroClearingPage() {
         description: "The giro clearing has been successfully recorded",
       });
 
-      // Reset form and refresh data
+      // Reset form but keep the date and status
+      const newRemainingAmount = remainingAmount - values.clearing_amount;
       form.reset({
         clearing_date: new Date(),
         clearing_status: 'cleared',
-        clearing_amount: 0,
+        clearing_amount: newRemainingAmount > 0 ? newRemainingAmount : 0, // Set to new remaining amount after this clearing
         reference_doc: '',
         remarks: '',
       });
       
-      // Refresh giro data and clearing records
-      fetchGiroData(giro.id);
+      // Only refresh clearing records without resetting the giro data
+      // This prevents the form from resetting to the total amount
+      fetchClearingRecords(giro.id, giro);
     } catch (error: any) {
       console.error('Error creating clearing record:', error);
       toast({

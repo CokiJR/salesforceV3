@@ -68,10 +68,10 @@ export function GiroClearing({ giro, onComplete, onCancel }: GiroClearingProps) 
       const records = await GiroService.getGiroClearing(giro.id);
       setClearingRecords(records);
       
-      // Calculate remaining amount
+      // Calculate remaining amount - include both cleared records
       const totalCleared = records
         .filter(record => record.clearing_status === 'cleared')
-        .reduce((sum, record) => sum + record.clearing_amount, 0);
+        .reduce((sum, record) => sum + Number(record.clearing_amount), 0);
       
       setRemainingAmount(Math.max(0, giro.amount - totalCleared));
     } catch (error: any) {
@@ -117,11 +117,14 @@ export function GiroClearing({ giro, onComplete, onCancel }: GiroClearingProps) 
         description: "The giro clearing has been successfully recorded",
       });
 
-      // Reset form and refresh data
+      // Calculate new remaining amount after this clearing
+      const newRemainingAmount = remainingAmount - values.clearing_amount;
+      
+      // Reset form but keep the date and status
       form.reset({
         clearing_date: new Date(),
         clearing_status: 'cleared',
-        clearing_amount: 0,
+        clearing_amount: newRemainingAmount > 0 ? newRemainingAmount : 0, // Set to new remaining amount
         reference_doc: '',
         remarks: '',
       });
