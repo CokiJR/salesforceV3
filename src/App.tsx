@@ -49,6 +49,7 @@ import ProductDetail from "@/pages/products/ProductDetail";
 import OrderDetail from "@/pages/orders/OrderDetail";
 import RouteDetail from "@/pages/routes/RouteDetail";
 import EditCustomer from "@/pages/customers/EditCustomer";
+import EditProduct from "@/pages/products/EditProduct";
 
 // Import the edit route component
 import EditRoute from "@/pages/routes/EditRoute";
@@ -106,8 +107,9 @@ const App = () => {
                     />
 
                     <Route path="products" element={<Products />} />
-                    <Route path="products/:id" element={<ProductDetail />} />
                     <Route path="products/add" element={<AddProduct />} />
+                    <Route path="products/edit/:id" element={<EditProduct />} />
+                    <Route path="products/:id" element={<ProductDetail />} />
 
                     <Route path="orders" element={<Orders />} />
                     <Route path="orders/:id" element={<OrderDetail />} />
