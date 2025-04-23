@@ -8,6 +8,7 @@ import SyncManager from "@/components/sync/SyncManager";
 import { format } from "date-fns";
 import { useNavigate } from "react-router-dom";
 import { InventorySummary } from "@/components/inventory/InventorySummary";
+import DashboardCharts from "@/components/dashboard/DashboardCharts";
 
 const Dashboard = () => {
   const { user } = useAuthentication();
@@ -199,7 +200,12 @@ const Dashboard = () => {
         </Card>
         
         <InventorySummary onNavigate={() => navigate("/dashboard/inventory")} />
-        
+      </div>
+      
+      {/* Grafik Dashboard */}
+      <DashboardCharts onRefresh={fetchDashboardStats} />
+      
+      <div className="grid gap-4 md:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Synchronization</CardTitle>
