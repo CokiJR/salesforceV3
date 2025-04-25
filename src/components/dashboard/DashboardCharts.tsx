@@ -106,15 +106,15 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
   const fetchSalesData = async () => {
     const { start, end } = getDateRange();
     
-    // Fetch sales by customer
+    // Fetch sales by customer with customer name from the customers table
     const { data: customerSales, error: customerError } = await supabase
       .from('orders')
       .select(`
         id,
         customer_id,
-        customer_name,
         total_amount,
-        created_at
+        created_at,
+        customer:customer_id (name)
       `)
       .gte('created_at', start.toISOString())
       .lte('created_at', end.toISOString());
@@ -123,7 +123,8 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
     
     // Aggregate sales by customer
     const salesByCustomer = customerSales?.reduce((acc: Record<string, number>, order) => {
-      const customerName = order.customer_name;
+      // Use customer.name from the joined relationship
+      const customerName = order.customer?.name || 'Unknown Customer';
       if (!acc[customerName]) acc[customerName] = 0;
       acc[customerName] += order.total_amount;
       return acc;
@@ -142,9 +143,12 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
     const salesByMonth: Record<string, number> = {};
     
     customerSales?.forEach(order => {
-      const monthYear = format(new Date(order.created_at), 'MMM yyyy', { locale: id });
-      if (!salesByMonth[monthYear]) salesByMonth[monthYear] = 0;
-      salesByMonth[monthYear] += order.total_amount;
+      // Pastikan created_at ada sebelum memformat tanggal
+      if (order.created_at) {
+        const monthYear = format(new Date(order.created_at), 'MMM yyyy', { locale: id });
+        if (!salesByMonth[monthYear]) salesByMonth[monthYear] = 0;
+        salesByMonth[monthYear] += order.total_amount;
+      }
     });
     
     const timeSeriesData = Object.entries(salesByMonth).map(([date, value]) => ({
