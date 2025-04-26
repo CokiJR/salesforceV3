@@ -44,8 +44,14 @@ const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'
 
 const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
   const [activeTab, setActiveTab] = useState('sales');
-  const [timeRange, setTimeRange] = useState('6months');
   const [isLoading, setIsLoading] = useState(false);
+  
+  // Filter states for each tab
+  const [salesTimeRange, setSalesTimeRange] = useState('6months');
+  const [collectionsTimeRange, setCollectionsTimeRange] = useState('6months');
+  const [paymentsTimeRange, setPaymentsTimeRange] = useState('6months');
+  const [giroTimeRange, setGiroTimeRange] = useState('6months');
+  const [salespersonTimeRange, setSalespersonTimeRange] = useState('6months');
   
   // Data states
   const [salesData, setSalesData] = useState<ChartData[]>([]);
@@ -55,20 +61,50 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
   const [paymentsData, setPaymentsData] = useState<ChartData[]>([]);
   const [paymentsTimeData, setPaymentsTimeData] = useState<TimeSeriesData[]>([]);
   const [giroData, setGiroData] = useState<ChartData[]>([]);
+  const [salespersonData, setSalespersonData] = useState<ChartData[]>([]);
+  const [salespersonTimeData, setSalespersonTimeData] = useState<TimeSeriesData[]>([]);
+  
+  // Effect hooks for each tab's data fetching
+  useEffect(() => {
+    fetchSalesData();
+  }, [salesTimeRange]);
   
   useEffect(() => {
-    fetchData();
-  }, [timeRange]);
+    fetchCollectionsData();
+  }, [collectionsTimeRange]);
+  
+  useEffect(() => {
+    fetchPaymentsData();
+  }, [paymentsTimeRange]);
+  
+  useEffect(() => {
+    fetchGiroData();
+  }, [giroTimeRange]);
+  
+  useEffect(() => {
+    fetchSalespersonData();
+  }, [salespersonTimeRange]);
   
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      await Promise.all([
-        fetchSalesData(),
-        fetchCollectionsData(),
-        fetchPaymentsData(),
-        fetchGiroData()
-      ]);
+      switch (activeTab) {
+        case 'sales':
+          await fetchSalesData();
+          break;
+        case 'collections':
+          await fetchCollectionsData();
+          break;
+        case 'payments':
+          await fetchPaymentsData();
+          break;
+        case 'giro':
+          await fetchGiroData();
+          break;
+        case 'salesperson':
+          await fetchSalespersonData();
+          break;
+      }
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
     } finally {
@@ -76,7 +112,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
     }
   };
   
-  const getDateRange = () => {
+  const getDateRange = (timeRange: string) => {
     const endDate = new Date();
     let startDate;
     
@@ -103,8 +139,47 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
     };
   };
   
+  // Get current time range based on active tab
+  const getCurrentTimeRange = () => {
+    switch (activeTab) {
+      case 'sales':
+        return salesTimeRange;
+      case 'collections':
+        return collectionsTimeRange;
+      case 'payments':
+        return paymentsTimeRange;
+      case 'giro':
+        return giroTimeRange;
+      case 'salesperson':
+        return salespersonTimeRange;
+      default:
+        return salesTimeRange;
+    }
+  };
+  
+  // Set time range based on active tab
+  const setCurrentTimeRange = (value: string) => {
+    switch (activeTab) {
+      case 'sales':
+        setSalesTimeRange(value);
+        break;
+      case 'collections':
+        setCollectionsTimeRange(value);
+        break;
+      case 'payments':
+        setPaymentsTimeRange(value);
+        break;
+      case 'giro':
+        setGiroTimeRange(value);
+        break;
+      case 'salesperson':
+        setSalespersonTimeRange(value);
+        break;
+    }
+  };
+  
   const fetchSalesData = async () => {
-    const { start, end } = getDateRange();
+    const { start, end } = getDateRange(salesTimeRange);
     
     // Fetch sales by customer with customer name from the customers table
     const { data: customerSales, error: customerError } = await supabase
@@ -164,8 +239,102 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
     setSalesTimeData(timeSeriesData);
   };
   
+  const fetchSalespersonData = async () => {
+    const { start, end } = getDateRange(salespersonTimeRange);
+    
+    // Pertama, ambil data orders dengan salesperson_id
+    const { data: salesData, error: salesError } = await supabase
+      .from('orders')
+      .select(`
+        id,
+        total_amount,
+        created_at,
+        salesperson_id
+      `)
+      .gte('created_at', start.toISOString())
+      .lte('created_at', end.toISOString());
+    
+    if (salesError) {
+      console.error('Error fetching salesperson data:', salesError);
+      throw salesError;
+    }
+    
+    // Jika tidak ada data, set data kosong
+    if (!salesData || salesData.length === 0) {
+      setSalespersonData([]);
+      setSalespersonTimeData([]);
+      return;
+    }
+    
+    // Ambil semua salesperson_id unik dari data orders
+    const salespersonIds = [...new Set(salesData.map(order => order.salesperson_id).filter(Boolean))];
+    
+    // Ambil data profiles untuk semua salesperson_id
+    const { data: salespersonProfiles, error: profilesError } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .in('id', salespersonIds);
+    
+    if (profilesError) {
+      console.error('Error fetching salesperson profiles:', profilesError);
+    }
+    
+    // Buat mapping dari salesperson_id ke nama
+    const salespersonMap: Record<string, string> = {};
+    if (salespersonProfiles) {
+      salespersonProfiles.forEach(profile => {
+        salespersonMap[profile.id] = profile.full_name;
+      });
+    }
+    
+    // Aggregate sales by salesperson
+    const salesBySalesperson = salesData.reduce((acc: Record<string, number>, order) => {
+      // Gunakan nama dari mapping atau ID jika tidak ditemukan
+      const salespersonName = salespersonMap[order.salesperson_id] || `ID: ${order.salesperson_id || 'Unknown'}`;
+      if (!acc[salespersonName]) acc[salespersonName] = 0;
+      acc[salespersonName] += order.total_amount;
+      return acc;
+    }, {});
+    
+    // Convert to chart data format
+    const chartData = Object.entries(salesBySalesperson).map(([name, value], index) => ({
+      name,
+      value,
+      fill: COLORS[index % COLORS.length]
+    })).sort((a, b) => b.value - a.value); // Sort by value
+    
+    setSalespersonData(chartData);
+    
+    // Fetch sales by month for each salesperson
+    const salesByMonth: Record<string, Record<string, number>> = {};
+    
+    salesData.forEach(order => {
+      if (order.created_at) {
+        const monthYear = format(new Date(order.created_at), 'MMM yyyy', { locale: id });
+        const salespersonName = salespersonMap[order.salesperson_id] || `ID: ${order.salesperson_id || 'Unknown'}`;
+        
+        if (!salesByMonth[monthYear]) salesByMonth[monthYear] = {};
+        if (!salesByMonth[monthYear][salespersonName]) salesByMonth[monthYear][salespersonName] = 0;
+        salesByMonth[monthYear][salespersonName] += order.total_amount;
+      }
+    });
+    
+    // Convert to time series data format (using the total for each month)
+    const timeSeriesData = Object.entries(salesByMonth).map(([date, salespeople]) => ({
+      date,
+      value: Object.values(salespeople).reduce((sum, value) => sum + value, 0)
+    })).sort((a, b) => {
+      // Sort by date
+      const dateA = new Date(a.date);
+      const dateB = new Date(b.date);
+      return dateA.getTime() - dateB.getTime();
+    });
+    
+    setSalespersonTimeData(timeSeriesData);
+  };
+  
   const fetchCollectionsData = async () => {
-    const { start, end } = getDateRange();
+    const { start, end } = getDateRange(collectionsTimeRange);
     
     // Fetch collections data
     const { data: collections, error: collectionsError } = await supabase
@@ -224,7 +393,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
   };
   
   const fetchPaymentsData = async () => {
-    const { start, end } = getDateRange();
+    const { start, end } = getDateRange(paymentsTimeRange);
     
     // Fetch payments data
     const { data: payments, error: paymentsError } = await supabase
@@ -281,7 +450,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
   };
   
   const fetchGiroData = async () => {
-    const { start, end } = getDateRange();
+    const { start, end } = getDateRange(giroTimeRange);
     
     // Fetch giro data
     const { data: giros, error: girosError } = await supabase
@@ -357,6 +526,13 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
         }));
         fileName = 'laporan-giro';
         break;
+      case 'salesperson':
+        dataToExport = salespersonData.map(item => ({
+          'Salesperson': item.name,
+          'Total Penjualan': item.value
+        }));
+        fileName = 'laporan-salesperson';
+        break;
     }
     
     if (dataToExport.length === 0) {
@@ -403,6 +579,11 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
     fetchData();
     if (onRefresh) onRefresh();
   };
+  
+  // Effect untuk mengubah tab
+  useEffect(() => {
+    fetchData();
+  }, [activeTab]);
   
   const renderActiveChart = () => {
     switch (activeTab) {
@@ -568,6 +749,43 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
             </Card>
           </div>
         );
+      case 'salesperson':
+        return (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Penjualan per Salesperson</CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={salespersonData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" />
+                    <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Bar dataKey="value" fill="#8884d8" name="Total Penjualan" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-sm font-medium">Tren Penjualan Bulanan per Salesperson</CardTitle>
+              </CardHeader>
+              <CardContent className="h-80">
+                <ResponsiveContainer width="100%" height="100%">
+                  <RechartLineChart data={salespersonTimeData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="date" />
+                    <YAxis tickFormatter={(value) => formatCurrency(value)} />
+                    <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                    <Line type="monotone" dataKey="value" stroke="#8884d8" name="Total Penjualan" />
+                  </RechartLineChart>
+                </ResponsiveContainer>
+              </CardContent>
+            </Card>
+          </div>
+        );
       default:
         return null;
     }
@@ -578,7 +796,7 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle>Laporan Grafik</CardTitle>
         <div className="flex space-x-2">
-          <Select value={timeRange} onValueChange={setTimeRange}>
+          <Select value={getCurrentTimeRange()} onValueChange={setCurrentTimeRange}>
             <SelectTrigger className="w-[180px]">
               <SelectValue placeholder="Pilih Rentang Waktu" />
             </SelectTrigger>
@@ -609,12 +827,16 @@ const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
               <span>Collection</span>
             </TabsTrigger>
             <TabsTrigger value="payments" className="flex items-center gap-2">
-              <BarChart3 className="h-4 w-4" />
-              <span>Payment</span>
+              <PieChart className="h-4 w-4" />
+              <span>Pembayaran</span>
             </TabsTrigger>
             <TabsTrigger value="giro" className="flex items-center gap-2">
               <PieChart className="h-4 w-4" />
               <span>Giro</span>
+            </TabsTrigger>
+            <TabsTrigger value="salesperson" className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              <span>Salesperson</span>
             </TabsTrigger>
           </TabsList>
           
