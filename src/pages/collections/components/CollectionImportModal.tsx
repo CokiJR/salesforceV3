@@ -48,27 +48,36 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
           const invoiceNumber = row.invoice_number || row['Invoice Number'] || row.InvoiceNumber || '';
           const customerName = row.customer_name || row['Customer Name'] || row.CustomerName || '';
           const amount = Number(row.amount || row.Amount || 0);
+          const customerId = row.customer_id || row['Customer ID'] || row.CustomerId || ''; // Format CXXXXXXX
+          const customerUuid = row.customer_uuid || row['Customer UUID'] || row.CustomerUuid || ''; // UUID
           
-          let dueDate = '';
+          // Parse invoice date
+          let invoiceDate = '';
           try {
-            const rawDueDate = row.due_date || row['Due Date'] || row.DueDate;
-            if (rawDueDate) {
+            const rawInvoiceDate = row.invoice_date || row['Invoice Date'] || row.InvoiceDate;
+            if (rawInvoiceDate) {
               // Try to parse as date 
-              dueDate = new Date(rawDueDate).toISOString();
+              invoiceDate = new Date(rawInvoiceDate).toISOString();
+            } else {
+              // Default to today if not provided
+              invoiceDate = new Date().toISOString();
             }
           } catch (e) {
-            console.error('Date parsing error:', e);
+            console.error('Invoice date parsing error:', e);
+            invoiceDate = new Date().toISOString(); // Default to today if parsing fails
           }
           
           return {
             invoice_number: invoiceNumber,
             customer_name: customerName,
             amount: amount,
-            due_date: dueDate,
+            customer_id: customerId, // Format CXXXXXXX
+            customer_uuid: customerUuid, // UUID
             status: (row.status || row.Status || 'Unpaid') === 'Paid' ? 'Paid' : 'Unpaid',
             notes: row.notes || row.Notes || '',
             bank_account: row.bank_account || row['Bank Account'] || '',
-            invoice_date: row.invoice_date || row['Invoice Date'] || ''
+            invoice_date: invoiceDate
+            // due_date will be calculated automatically based on customer's payment_term
           } as CollectionImportFormat;
         });
 
@@ -168,9 +177,10 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
           <TableHeader>
             <TableRow>
               <TableHead>Invoice Number</TableHead>
+              <TableHead>Customer ID</TableHead>
               <TableHead>Customer Name</TableHead>
               <TableHead>Amount</TableHead>
-              <TableHead>Due Date</TableHead>
+              <TableHead>Invoice Date</TableHead>
               <TableHead>Status</TableHead>
             </TableRow>
           </TableHeader>
@@ -178,13 +188,14 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
             {previewData.map((item, index) => (
               <TableRow key={index}>
                 <TableCell>{item.invoice_number}</TableCell>
+                <TableCell>{item.customer_id || 'Akan dicocokkan dengan nama'}</TableCell>
                 <TableCell>{item.customer_name}</TableCell>
                 <TableCell>{typeof item.amount === 'number' ? item.amount.toFixed(2) : item.amount}</TableCell>
                 <TableCell>
-                  {item.due_date ? 
-                    (typeof item.due_date === 'string' && item.due_date.includes('T') ? 
-                      format(new Date(item.due_date), 'PP') : 
-                      item.due_date) : 
+                  {item.invoice_date ? 
+                    (typeof item.invoice_date === 'string' && item.invoice_date.includes('T') ? 
+                      format(new Date(item.invoice_date), 'PP') : 
+                      item.invoice_date) : 
                     'N/A'
                   }
                 </TableCell>
@@ -193,6 +204,9 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
             ))}
           </TableBody>
         </Table>
+        <div className="p-2 text-xs text-muted-foreground">
+          <p>* Due date akan dihitung otomatis berdasarkan payment term pelanggan</p>
+        </div>
       </div>
     );
   };

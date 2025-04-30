@@ -11,7 +11,7 @@ export class CollectionService {
         .from('collections')
         .select(`
           *,
-          customer:customers(*)
+          customer:customers!collections_customer_uuid_fkey(*)
         `)
         .order('due_date', { ascending: true });
       
@@ -21,15 +21,14 @@ export class CollectionService {
       const transformedData = (data || []).map(item => {
         return {
           ...item,
-          // If customer array exists and has at least one element, use the first element as the customer object
-          // Otherwise set customer as undefined
-          customer: Array.isArray(item.customer) && item.customer.length > 0 ? {
-            ...item.customer[0],
-            location: item.customer[0].location ? {
-              lat: Number((item.customer[0].location as any).lat || 0),
-              lng: Number((item.customer[0].location as any).lng || 0)
+          // If customer exists, format it correctly
+          customer: item.customer ? {
+            ...item.customer,
+            location: item.customer.location ? {
+              lat: Number((item.customer.location as any).lat || 0),
+              lng: Number((item.customer.location as any).lng || 0)
             } : undefined,
-            status: item.customer[0].status as "active" | "inactive"
+            status: item.customer.status as "active" | "inactive"
           } : undefined
         };
       });
@@ -86,9 +85,24 @@ export class CollectionService {
 
   static async createCollection(collection: Omit<Collection, 'id' | 'created_at' | 'updated_at'>): Promise<Collection> {
     try {
+      // Pastikan data yang dimasukkan sesuai dengan struktur tabel baru
+      const collectionData = {
+        customer_id: collection.customer_id,
+        customer_uuid: collection.customer_uuid,
+        customer_name: collection.customer_name,
+        invoice_number: collection.invoice_number,
+        amount: collection.amount,
+        due_date: collection.due_date,
+        status: collection.status || 'Pending',
+        notes: collection.notes,
+        invoice_date: collection.invoice_date,
+        bank_account: collection.bank_account,
+        payment_method: collection.payment_method
+      };
+      
       const { data, error } = await supabase
         .from('collections')
-        .insert(collection)
+        .insert(collectionData)
         .select('*')
         .single();
       
@@ -195,7 +209,7 @@ export class CollectionService {
       }
       
       // Validasi kolom yang diperlukan
-      const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
+      const requiredColumns = ['invoice_number', 'customer_name', 'amount', 'invoice_date'];
       const missingColumns = [];
       
       // Periksa apakah data memiliki semua kolom yang diperlukan
@@ -217,34 +231,125 @@ export class CollectionService {
       
       // Process each row and calculate due_date based on customer's payment_term
       for (const row of data) {
-        // Get customer data to retrieve payment_term
-        const { data: customerData, error: customerError } = await supabase
-          .from('customers')
-          .select('payment_term')
-          .eq('id', row.customer_id)
-          .single();
+        let customerUuid = '';
+        let customerIdFormat = '';
         
-        if (customerError) {
-          console.warn(`Customer not found for ID: ${row.customer_id}. Using default payment term.`);
+        // Cek apakah customer_id ada di data yang diimpor (format CXXXXXXX)
+        if (row.customer_id) {
+          // Jika ada, gunakan customer_id sebagai customer_id (format CXXXXXXX)
+          customerIdFormat = row.customer_id;
+          
+          // Cari UUID customer berdasarkan customer_id
+          const { data: customerData, error: customerError } = await supabase
+            .from('customers')
+            .select('id, payment_term, name')
+            .eq('customer_id', customerIdFormat)
+            .single();
+          
+          if (!customerError && customerData) {
+            customerUuid = customerData.id;
+            
+            // Parse invoice date
+            const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
+            
+            // Calculate due date based on payment term
+            let dueDate = new Date(invoiceDate);
+            const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
+            dueDate.setDate(dueDate.getDate() + paymentTerm);
+            
+            collectionsToInsert.push({
+              invoice_date: invoiceDate.toISOString(),
+              invoice_number: row.invoice_number || `INV-${Date.now()}`,
+              customer_id: customerIdFormat, // Format CXXXXXXX
+              customer_uuid: customerUuid, // UUID dari customers.id
+              customer_name: customerData.name || row.customer_name, // Gunakan nama dari database jika tersedia
+              amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
+              due_date: dueDate.toISOString(),
+              status: row.status || 'Unpaid',
+              notes: row.notes || '',
+              bank_account: row.bank_account || ''
+            });
+          } else {
+            console.warn(`Customer not found for ID: ${customerIdFormat}. Skipping this row.`);
+          }
+        } 
+        // Cek apakah customer_uuid ada di data yang diimpor
+        else if (row.customer_uuid) {
+          customerUuid = row.customer_uuid;
+          
+          // Cari customer berdasarkan UUID
+          const { data: customerData, error: customerError } = await supabase
+            .from('customers')
+            .select('id, customer_id, payment_term, name')
+            .eq('id', customerUuid)
+            .single();
+          
+          if (!customerError && customerData) {
+            customerIdFormat = customerData.customer_id;
+            
+            // Parse invoice date
+            const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
+            
+            // Calculate due date based on payment term
+            let dueDate = new Date(invoiceDate);
+            const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
+            dueDate.setDate(dueDate.getDate() + paymentTerm);
+            
+            collectionsToInsert.push({
+              invoice_date: invoiceDate.toISOString(),
+              invoice_number: row.invoice_number || `INV-${Date.now()}`,
+              customer_id: customerIdFormat, // Format CXXXXXXX
+              customer_uuid: customerUuid, // UUID dari customers.id
+              customer_name: customerData.name || row.customer_name, // Gunakan nama dari database jika tersedia
+              amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
+              due_date: dueDate.toISOString(),
+              status: row.status || 'Unpaid',
+              notes: row.notes || '',
+              bank_account: row.bank_account || ''
+            });
+          } else {
+            console.warn(`Customer not found for UUID: ${customerUuid}. Skipping this row.`);
+          }
+        } else {
+          // Jika tidak ada customer_id atau customer_uuid, cari customer berdasarkan nama
+          const { data: customerData, error: customerError } = await supabase
+            .from('customers')
+            .select('id, customer_id, payment_term, name')
+            .ilike('name', row.customer_name)
+            .single();
+          
+          if (!customerError && customerData) {
+            customerUuid = customerData.id;
+            customerIdFormat = customerData.customer_id;
+            
+            // Parse invoice date
+            const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
+            
+            // Calculate due date based on payment term
+            let dueDate = new Date(invoiceDate);
+            const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
+            dueDate.setDate(dueDate.getDate() + paymentTerm);
+            
+            collectionsToInsert.push({
+              invoice_date: invoiceDate.toISOString(),
+              invoice_number: row.invoice_number || `INV-${Date.now()}`,
+              customer_id: customerIdFormat, // Format CXXXXXXX
+              customer_uuid: customerUuid, // UUID dari customers.id
+              customer_name: row.customer_name,
+              amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
+              due_date: dueDate.toISOString(),
+              status: row.status || 'Unpaid',
+              notes: row.notes || '',
+              bank_account: row.bank_account || ''
+            });
+          } else {
+            console.warn(`Customer not found for name: ${row.customer_name}. Skipping this row.`);
+          }
         }
-        
-        // Parse invoice date
-        const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
-        
-        // Calculate due date based on payment term
-        let dueDate = new Date(invoiceDate);
-        const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
-        dueDate.setDate(dueDate.getDate() + paymentTerm);
-        
-        collectionsToInsert.push({
-          invoice_date: invoiceDate.toISOString(),
-          invoice_number: row.invoice_number || `INV-${Date.now()}`,
-          customer_id: row.customer_id || '00000000-0000-0000-0000-000000000000',
-          customer_name: row.customer_name,
-          amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
-          due_date: dueDate.toISOString(),
-          status: 'Unpaid'
-        });
+      }
+      
+      if (collectionsToInsert.length === 0) {
+        throw new Error('Tidak ada data valid yang dapat diimpor. Pastikan customer_id, customer_uuid, atau customer_name valid.');
       }
       
       // Insert the collections
@@ -315,8 +420,9 @@ export class CollectionService {
           'invoice_number': 'INV-001', // Kolom wajib
           'customer_name': 'ACME Corporation', // Kolom wajib
           'amount': 1000, // Kolom wajib
-          'invoice_date': '2023-12-01', // Opsional
-          'customer_id': '00000000-0000-0000-0000-000000000000', // Opsional
+          'invoice_date': '2023-12-01', // Kolom wajib
+          'customer_id': 'C0000001', // Opsional - Format CXXXXXXX dari customers.customer_id
+          'customer_uuid': '00000000-0000-0000-0000-000000000000', // Opsional - UUID dari customers.id
           'status': 'Unpaid', // Opsional
           'notes': 'Catatan tambahan', // Opsional
           'bank_account': 'BCA' // Opsional
@@ -331,9 +437,12 @@ export class CollectionService {
       // Tambahkan catatan tentang kolom wajib dan perhitungan due_date
       const notes = [
         'CATATAN PENTING:',
-        '1. Kolom wajib: invoice_number, customer_name, amount',
+        '1. Kolom wajib: invoice_number, customer_name, amount, invoice_date',
         '2. due_date akan dihitung otomatis berdasarkan payment_term pelanggan',
-        '3. Jika customer_id tidak diisi, sistem akan mencoba mencocokkan berdasarkan customer_name'
+        '3. Identifikasi pelanggan dapat menggunakan salah satu dari:',
+        '   - customer_id (format CXXXXXXX)',
+        '   - customer_uuid (UUID dari customers.id)',
+        '   - customer_name (akan dicocokkan dengan nama pelanggan di database)'
       ];
       
       for (let i = 0; i < notes.length; i++) {

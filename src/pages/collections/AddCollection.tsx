@@ -72,6 +72,7 @@ export default function AddCollection() {
       // Map the data to ensure it matches the Customer type
       const mappedCustomers: Customer[] = (data || []).map(customer => ({
         id: customer.id,
+        customer_id: customer.customer_id || '', // Pastikan customer_id (format CXXXXXXX) diambil
         name: customer.name,
         address: customer.address,
         city: customer.city,
@@ -124,15 +125,31 @@ export default function AddCollection() {
         throw new Error("Selected customer not found");
       }
       
+      // Pastikan customer_id tidak kosong, jika kosong gunakan kode C dari customer_uuid
+      let customerId = selectedCustomer.customer_id || '';
+      
+      // Jika customer_id masih kosong dan kita memiliki customer_uuid, buat kode C
+      if (!customerId && selectedCustomerId) {
+        // Buat format CXXXXXXX dari UUID
+        // Ambil 7 karakter pertama dari UUID dan tambahkan prefix 'C'
+        customerId = 'C' + selectedCustomerId.substring(0, 7).toUpperCase();
+        console.log('Generated customer_id from UUID:', customerId);
+      }
+      
       const newCollection = {
         invoice_number: invoiceNumber,
         customer_name: selectedCustomer.name,
-        customer_id: selectedCustomerId,
+        customer_id: customerId, // Format CXXXXXXX dari customers.customer_id atau dibuat dari UUID
+        customer_uuid: selectedCustomerId, // UUID dari customers.id
         amount: parseFloat(amount),
         invoice_date: invoiceDate.toISOString(),
         due_date: dueDate.toISOString(),
         status: 'Unpaid' as const,
       };
+      
+      // Log untuk debugging
+      console.log('Selected customer:', selectedCustomer);
+      console.log('Creating collection with customer_id:', customerId, 'and customer_uuid:', selectedCustomerId);
       
       try {
         // First check for duplicate invoice number

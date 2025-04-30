@@ -116,7 +116,60 @@ export class PaymentService {
       payment.payment_method = 'Cash'; // Default to Cash if not specified
     }
     
-
+    // Validasi customer_uuid
+    if (!payment.customer_uuid) {
+      console.error('Missing customer_uuid in payment data:', payment);
+      
+      // Jika customer_id ada, coba dapatkan UUID dari customer_id
+      if (payment.customer_id) {
+        try {
+          const { data: customerData, error: customerError } = await supabase
+            .from('customers')
+            .select('id')
+            .eq('customer_id', payment.customer_id)
+            .single();
+            
+          if (customerError) throw customerError;
+          
+          if (customerData && customerData.id) {
+            payment.customer_uuid = customerData.id;
+            console.log('Retrieved customer_uuid from customer_id:', payment.customer_uuid);
+          }
+        } catch (error) {
+          console.error('Error retrieving customer UUID:', error);
+        }
+      }
+      
+      // Jika masih kosong, coba dapatkan dari collection
+      if (!payment.customer_uuid && payment.collection_id) {
+        try {
+          const { data: collectionData, error: collectionError } = await supabase
+            .from('collections')
+            .select('customer_uuid')
+            .eq('id', payment.collection_id)
+            .single();
+            
+          if (collectionError) throw collectionError;
+          
+          if (collectionData && collectionData.customer_uuid) {
+            payment.customer_uuid = collectionData.customer_uuid;
+            console.log('Retrieved customer_uuid from collection:', payment.customer_uuid);
+          }
+        } catch (error) {
+          console.error('Error retrieving customer UUID from collection:', error);
+        }
+      }
+      
+      // Jika masih kosong, buat error
+      if (!payment.customer_uuid) {
+        throw new Error('Customer UUID is required for payment');
+      }
+    }
+    
+    // Untuk kompatibilitas dengan kode lama, jika ada customers_uuid tapi tidak ada customer_uuid
+    if (payment.customers_uuid && !payment.customer_uuid) {
+      payment.customer_uuid = payment.customers_uuid;
+    }
 
     const { data, error } = await supabase
       .from('payments')

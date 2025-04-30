@@ -2,7 +2,8 @@ import { Customer, Transaction } from ".";
 
 export interface Collection {
   id: string;
-  customer_id: string;
+  customer_id: string; // Format CXXXXXXX dari customers.customer_id
+  customer_uuid?: string; // UUID dari customers.id
   customer?: Customer;
   invoice_number: string;
   customer_name: string;
@@ -17,7 +18,7 @@ export interface Collection {
   transaction_id?: string;
   transaction?: Transaction;
   sync_status?: string;
-  invoice_date?: string;
+  invoice_date: string;
   payment_method?: string;
 }
 
@@ -37,15 +38,18 @@ export interface CollectionImportFormat {
   status?: "Paid" | "Unpaid";
   notes?: string;
   bank_account?: string;
-  invoice_date?: string;
-  customer_id?: string; // Added customer_id as optional for imports
+  invoice_date: string;
+  customer_id?: string; // Format CXXXXXXX dari customers.customer_id
+  customer_uuid?: string; // UUID dari customers.id
   // due_date removed as it will be calculated automatically based on customer's payment_term
 }
 
 export interface Payment {
   id: string;
   collection_id: string;
-  customer_id: string;
+  customer_id: string; // Format CXXXXXXX dari customers.customer_id
+  customer_uuid?: string; // UUID dari customers.id
+  customers_uuid?: string; // Field lama, untuk kompatibilitas dengan kode yang sudah ada
   bank_account_id: string;
   account_number?: string;
   amount: number;

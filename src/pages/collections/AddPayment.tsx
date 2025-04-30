@@ -39,6 +39,8 @@ const paymentSchema = z.object({
   payment_date: z.date({
     required_error: 'Payment date is required',
   }),
+  payment_method: z.enum(['Cash', 'Transfer Bank', 'Giro']).default('Cash'),
+  giro_number: z.string().optional(),
 });
 
 type PaymentFormValues = z.infer<typeof paymentSchema>;
@@ -81,6 +83,8 @@ export default function AddPayment() {
       bank_account_id: '',
       amount: 0,
       payment_date: new Date(),
+      payment_method: 'Cash',
+      giro_number: '',
     },
   });
 
@@ -97,14 +101,64 @@ export default function AddPayment() {
     try {
       setIsSubmitting(true);
       
+      // Get customer data to retrieve customer_id (CXXXXXXX format)
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .select("id, customer_id")
+        .eq("id", selectedCollection.customer_id)
+        .single();
+      
+      if (customerError) {
+        console.error("Error fetching customer data:", customerError);
+        throw customerError;
+      }
+      
+      // Pastikan customer_id dan customers_uuid tidak kosong
+      let customerId = customerData.customer_id || '';
+      // Prioritaskan customer_uuid dari collection jika tersedia
+      let customerUuid = selectedCollection.customer_uuid || selectedCollection.customer_id || customerData.id;
+      
+      console.log('Collection data:', selectedCollection);
+      console.log('Available customer_uuid:', selectedCollection.customer_uuid);
+      console.log('Available customer_id:', selectedCollection.customer_id);
+      
+      // Jika customer_id masih kosong dan kita memiliki UUID, buat kode C
+      if (!customerId && customerUuid) {
+        // Buat format CXXXXXXX dari UUID
+        customerId = 'C' + customerUuid.substring(0, 7).toUpperCase();
+        console.log('Generated customer_id from UUID:', customerId);
+      }
+      
+      // Log untuk debugging
+      console.log('Customer data:', customerData);
+      console.log('Selected collection:', selectedCollection);
+      console.log('Using customer_id:', customerId, 'and customer_uuid:', customerUuid);
+      
       const paymentData: Omit<Payment, 'id' | 'created_at' | 'updated_at'> = {
         collection_id: values.collection_id,
-        customer_id: selectedCollection.customer_id,
+        customer_id: customerId, // Use CXXXXXXX format
+        customer_uuid: customerUuid, // Store the UUID (menggunakan customer_uuid bukan customers_uuid)
         bank_account_id: values.bank_account_id,
         amount: values.amount,
         payment_date: values.payment_date.toISOString(),
         status: 'Pending',
+        payment_method: values.payment_method,
+        giro_number: values.payment_method === 'Giro' ? values.giro_number : undefined,
       };
+      
+      // Validasi data sebelum mengirim
+      if (!paymentData.customer_uuid) {
+        throw new Error('Customer UUID tidak ditemukan. Silakan pilih koleksi lain.');
+      }
+      
+      // Validasi metode pembayaran
+      if (values.payment_method === 'Transfer Bank' && !values.bank_account_id) {
+        throw new Error('Akun bank diperlukan untuk metode pembayaran Transfer Bank');
+      }
+      
+      if (values.payment_method === 'Giro' && !values.giro_number) {
+        throw new Error('Nomor giro diperlukan untuk metode pembayaran Giro');
+      }
       
       await addPayment(paymentData);
       
@@ -143,11 +197,25 @@ export default function AddPayment() {
     
     try {
       setIsLoadingBankAccounts(true);
-      // First get the relationships from customer_bank_accounts
+      // First get customer UUID from customer_id (CXXXXXXX format)
+      const { data: customerData, error: customerError } = await supabase
+        .from("customers")
+        .select("id")
+        .eq("customer_id", customerId)
+        .single();
+      
+      if (customerError) {
+        console.error("Error fetching customer UUID:", customerError);
+        throw customerError;
+      }
+      
+      const customerUuid = customerData?.id;
+      
+      // Then get the relationships from customer_bank_accounts using the UUID
       const { data: relationships, error: relError } = await supabase
         .from("customer_bank_accounts")
         .select("bank_account_id")
-        .eq("customer_id", customerId);
+        .eq("customer_id", customerUuid);
       
       if (relError) throw relError;
       
@@ -315,6 +383,52 @@ export default function AddPayment() {
                     </FormItem>
                   )}
                 />
+                
+                <FormField
+                  control={form.control}
+                  name="payment_method"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Metode Pembayaran</FormLabel>
+                      <Select
+                        onValueChange={field.onChange}
+                        defaultValue={field.value}
+                        value={field.value}
+                      >
+                        <FormControl>
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Pilih metode pembayaran" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="Cash">Tunai</SelectItem>
+                          <SelectItem value="Transfer Bank">Transfer Bank</SelectItem>
+                          <SelectItem value="Giro">Giro</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                
+                {form.watch('payment_method') === 'Giro' && (
+                  <FormField
+                    control={form.control}
+                    name="giro_number"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Nomor Giro</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Masukkan nomor giro"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                )}
                 
                 <FormField
                   control={form.control}

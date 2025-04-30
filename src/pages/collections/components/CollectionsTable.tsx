@@ -45,6 +45,7 @@ export function CollectionsTable({
             <TableHeader>
               <TableRow>
                 <TableHead>Invoice Number</TableHead>
+                <TableHead>Customer ID</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Amount</TableHead>
@@ -57,6 +58,7 @@ export function CollectionsTable({
               {collections.map((collection) => (
                 <TableRow key={collection.id}>
                   <TableCell className="font-medium">{collection.invoice_number}</TableCell>
+                  <TableCell>{collection.customer_id || '-'}</TableCell>
                   <TableCell>{collection.customer_name}</TableCell>
                   <TableCell>{format(new Date(collection.due_date), 'MMM dd, yyyy')}</TableCell>
                   <TableCell>{formatCurrency(collection.amount)}</TableCell>

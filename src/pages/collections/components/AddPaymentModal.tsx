@@ -96,7 +96,7 @@ export function AddPaymentModal({
   // Fetch customer bank accounts
   useEffect(() => {
     const fetchBankAccounts = async () => {
-      if (!collection.customer_id) return;
+      if (!collection.customer_uuid) return;
 
       try {
         setIsLoadingBankAccounts(true);
@@ -104,7 +104,7 @@ export function AddPaymentModal({
         const { data: relationships, error: relError } = await supabase
           .from("customer_bank_accounts")
           .select("bank_account_id")
-          .eq("customer_uuid", collection.customer_id);
+          .eq("customer_uuid", collection.customer_uuid);
 
         if (relError) throw relError;
 
@@ -136,10 +136,10 @@ export function AddPaymentModal({
       }
     };
 
-    if (isOpen && collection.customer_id) {
+    if (isOpen && collection.customer_uuid) {
       fetchBankAccounts();
     }
-  }, [isOpen, collection.customer_id]);
+  }, [isOpen, collection.customer_uuid]);
 
   const form = useForm<PaymentFormValues>({
     resolver: zodResolver(paymentSchema),
