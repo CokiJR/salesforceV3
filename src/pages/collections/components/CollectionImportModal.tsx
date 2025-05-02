@@ -57,7 +57,14 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
             const rawInvoiceDate = row.invoice_date || row['Invoice Date'] || row.InvoiceDate;
             if (rawInvoiceDate) {
               // Try to parse as date 
-              invoiceDate = new Date(rawInvoiceDate).toISOString();
+              const parsedDate = new Date(rawInvoiceDate);
+              // Validasi tanggal sebelum mengkonversi ke ISO string
+              if (!isNaN(parsedDate.getTime())) {
+                invoiceDate = parsedDate.toISOString();
+              } else {
+                console.warn(`Tanggal invoice tidak valid: ${rawInvoiceDate}, menggunakan tanggal hari ini`);
+                invoiceDate = new Date().toISOString();
+              }
             } else {
               // Default to today if not provided
               invoiceDate = new Date().toISOString();
@@ -89,7 +96,7 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
         toast({
           variant: "destructive",
           title: "Error saat memproses file",
-          description: error.message || "Tidak dapat memproses file Excel. Silakan periksa format file.",
+          description: error.message || "Tidak dapat memproses file Excel. Kolom wajib: invoice_number, customer_name, amount, invoice_date. Silakan periksa format file.",
           duration: 5000, // Tampilkan pesan lebih lama agar pengguna bisa membaca
         });
         setIsLoading(false);
@@ -138,7 +145,7 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
       toast({
         variant: "destructive",
         title: "Import gagal",
-        description: error.message || "Gagal mengimpor koleksi.",
+        description: error.message || "Gagal mengimpor koleksi. Pastikan file memiliki kolom wajib: invoice_number, customer_name, amount, invoice_date.",
         duration: 5000, // Tampilkan pesan lebih lama agar pengguna bisa membaca
       });
     } finally {
@@ -205,6 +212,7 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
           </TableBody>
         </Table>
         <div className="p-2 text-xs text-muted-foreground">
+          <p className="font-medium">* Kolom wajib: invoice_number, customer_name, amount, invoice_date</p>
           <p>* Due date akan dihitung otomatis berdasarkan payment term pelanggan</p>
         </div>
       </div>
@@ -217,7 +225,7 @@ export function CollectionImportModal({ isOpen, onClose, onImportComplete }: Col
         <DialogHeader>
           <DialogTitle>Import Koleksi</DialogTitle>
           <DialogDescription>
-            Unggah file Excel untuk mengimpor koleksi. Anda dapat mengunduh template untuk melihat format yang diperlukan.
+            Unggah file Excel untuk mengimpor koleksi. Kolom wajib: <strong>invoice_number, customer_name, amount, invoice_date</strong>. Anda dapat mengunduh template untuk melihat format yang diperlukan.
           </DialogDescription>
         </DialogHeader>
 

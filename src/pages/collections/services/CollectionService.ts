@@ -202,165 +202,282 @@ export class CollectionService {
 
   static async importFromExcel(file: File): Promise<Collection[]> {
     try {
-      const data = await this.parseExcelFile(file);
+      // Tambahkan log untuk membantu debugging
+      console.log('Mulai proses import dari Excel:', file.name, 'ukuran:', file.size);
       
-      if (!data || data.length === 0) {
-        throw new Error('Tidak ada data ditemukan dalam file Excel');
+      // Parse file Excel
+      let data;
+      try {
+        data = await this.parseExcelFile(file);
+      } catch (parseError: any) {
+        console.error('Error saat parsing file Excel:', parseError);
+        // Tampilkan pesan error yang lebih informatif
+        throw new Error(`Gagal memproses file Excel: ${parseError.message}`);
       }
       
-      // Validasi kolom yang diperlukan
-      const requiredColumns = ['invoice_number', 'customer_name', 'amount', 'invoice_date'];
+      if (!data || data.length === 0) {
+        throw new Error('Tidak ada data ditemukan dalam file Excel. Pastikan file memiliki data dan format yang benar.');
+      }
+      
+      console.log(`Berhasil parse ${data.length} baris data dari Excel`);
+      
+      // Validasi kolom yang diperlukan sudah dilakukan di parseExcelFile
+      // Kita hanya perlu memastikan data yang dihasilkan valid
+      const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
       const missingColumns = [];
       
       // Periksa apakah data memiliki semua kolom yang diperlukan
       if (data.length > 0) {
         const firstRow = data[0];
         for (const col of requiredColumns) {
-          if (firstRow[col as keyof typeof firstRow] === undefined) {
+          if (firstRow[col as keyof typeof firstRow] === undefined || 
+              firstRow[col as keyof typeof firstRow] === '') {
             missingColumns.push(col);
           }
         }
       }
       
       if (missingColumns.length > 0) {
-        throw new Error(`File yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}`);
+        const errorMsg = `File yang diimpor tidak memiliki nilai untuk kolom yang diperlukan: ${missingColumns.join(', ')}\n\n` +
+                       `Kolom wajib yang harus ada dan memiliki nilai: invoice_number, customer_name, amount.\n\n` +
+                       `Silakan periksa kembali file Excel Anda dan pastikan kolom-kolom tersebut memiliki nilai.`;
+        
+        throw new Error(errorMsg);
       }
+      
+      console.log('Validasi kolom berhasil, melanjutkan proses import...');
       
       // Format the data for insertion with only required fields
       const collectionsToInsert = [];
+      const skippedRows = [];
       
       // Process each row and calculate due_date based on customer's payment_term
+      console.log(`Memproses ${data.length} baris data untuk mencari customer...`);
+      
       for (const row of data) {
         let customerUuid = '';
         let customerIdFormat = '';
+        let customerData = null;
         
-        // Cek apakah customer_id ada di data yang diimpor (format CXXXXXXX)
+        console.log(`Memproses baris dengan invoice ${row.invoice_number}, customer ${row.customer_name}`);
+        
+        // Coba identifikasi customer dengan prioritas: customer_id > customer_uuid > customer_name
         if (row.customer_id) {
-          // Jika ada, gunakan customer_id sebagai customer_id (format CXXXXXXX)
-          customerIdFormat = row.customer_id;
-          
-          // Cari UUID customer berdasarkan customer_id
-          const { data: customerData, error: customerError } = await supabase
-            .from('customers')
-            .select('id, payment_term, name')
-            .eq('customer_id', customerIdFormat)
-            .single();
-          
-          if (!customerError && customerData) {
-            customerUuid = customerData.id;
-            
-            // Parse invoice date
-            const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
-            
-            // Calculate due date based on payment term
-            let dueDate = new Date(invoiceDate);
-            const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
-            dueDate.setDate(dueDate.getDate() + paymentTerm);
-            
-            collectionsToInsert.push({
-              invoice_date: invoiceDate.toISOString(),
-              invoice_number: row.invoice_number || `INV-${Date.now()}`,
-              customer_id: customerIdFormat, // Format CXXXXXXX
-              customer_uuid: customerUuid, // UUID dari customers.id
-              customer_name: customerData.name || row.customer_name, // Gunakan nama dari database jika tersedia
-              amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
-              due_date: dueDate.toISOString(),
-              status: row.status || 'Unpaid',
-              notes: row.notes || '',
-              bank_account: row.bank_account || ''
-            });
-          } else {
-            console.warn(`Customer not found for ID: ${customerIdFormat}. Skipping this row.`);
-          }
-        } 
-        // Cek apakah customer_uuid ada di data yang diimpor
-        else if (row.customer_uuid) {
-          customerUuid = row.customer_uuid;
-          
-          // Cari customer berdasarkan UUID
-          const { data: customerData, error: customerError } = await supabase
+          console.log(`Mencari customer dengan customer_id: ${row.customer_id}`);
+          // Cari customer berdasarkan customer_id (format CXXXXXXX)
+          const { data: foundCustomer, error } = await supabase
             .from('customers')
             .select('id, customer_id, payment_term, name')
-            .eq('id', customerUuid)
+            .eq('customer_id', row.customer_id)
             .single();
           
-          if (!customerError && customerData) {
-            customerIdFormat = customerData.customer_id;
-            
-            // Parse invoice date
-            const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
-            
-            // Calculate due date based on payment term
-            let dueDate = new Date(invoiceDate);
-            const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
-            dueDate.setDate(dueDate.getDate() + paymentTerm);
-            
-            collectionsToInsert.push({
-              invoice_date: invoiceDate.toISOString(),
-              invoice_number: row.invoice_number || `INV-${Date.now()}`,
-              customer_id: customerIdFormat, // Format CXXXXXXX
-              customer_uuid: customerUuid, // UUID dari customers.id
-              customer_name: customerData.name || row.customer_name, // Gunakan nama dari database jika tersedia
-              amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
-              due_date: dueDate.toISOString(),
-              status: row.status || 'Unpaid',
-              notes: row.notes || '',
-              bank_account: row.bank_account || ''
-            });
-          } else {
-            console.warn(`Customer not found for UUID: ${customerUuid}. Skipping this row.`);
+          if (!error && foundCustomer) {
+            customerData = foundCustomer;
+            customerUuid = foundCustomer.id;
+            customerIdFormat = foundCustomer.customer_id;
+            console.log(`Customer ditemukan dengan customer_id: ${customerIdFormat}, name: ${foundCustomer.name}`);
+          } else if (error) {
+            console.warn(`Error saat mencari customer dengan customer_id ${row.customer_id}:`, error);
           }
-        } else {
-          // Jika tidak ada customer_id atau customer_uuid, cari customer berdasarkan nama
-          const { data: customerData, error: customerError } = await supabase
+        }
+        
+        // Jika belum ditemukan, coba cari berdasarkan UUID
+        if (!customerData && row.customer_uuid) {
+          console.log(`Mencari customer dengan UUID: ${row.customer_uuid}`);
+          const { data: foundCustomer, error } = await supabase
+            .from('customers')
+            .select('id, customer_id, payment_term, name')
+            .eq('id', row.customer_uuid)
+            .single();
+          
+          if (!error && foundCustomer) {
+            customerData = foundCustomer;
+            customerUuid = foundCustomer.id;
+            customerIdFormat = foundCustomer.customer_id;
+            console.log(`Customer ditemukan dengan UUID: ${customerUuid}, name: ${foundCustomer.name}`);
+          } else if (error) {
+            console.warn(`Error saat mencari customer dengan UUID ${row.customer_uuid}:`, error);
+          }
+        }
+        
+        // Jika masih belum ditemukan, coba cari berdasarkan nama
+        if (!customerData && row.customer_name) {
+          console.log(`Mencari customer dengan nama: ${row.customer_name}`);
+          const { data: foundCustomer, error } = await supabase
             .from('customers')
             .select('id, customer_id, payment_term, name')
             .ilike('name', row.customer_name)
             .single();
           
-          if (!customerError && customerData) {
-            customerUuid = customerData.id;
-            customerIdFormat = customerData.customer_id;
+          if (!error && foundCustomer) {
+            customerData = foundCustomer;
+            customerUuid = foundCustomer.id;
+            customerIdFormat = foundCustomer.customer_id;
+            console.log(`Customer ditemukan dengan nama: ${foundCustomer.name}, id: ${customerUuid}`);
+          } else if (error) {
+            // Jika error bukan NOT_FOUND, log error
+            if (error.code !== 'PGRST116') { // PGRST116 adalah kode untuk 'not found'
+              console.warn(`Error saat mencari customer dengan nama ${row.customer_name}:`, error);
+            } else {
+              console.log(`Tidak ada customer dengan nama yang cocok: ${row.customer_name}`);
+              
+              // Coba pencarian fuzzy dengan ILIKE yang lebih longgar
+              try {
+                const { data: similarCustomers } = await supabase
+                  .from('customers')
+                  .select('id, customer_id, name')
+                  .ilike('name', `%${row.customer_name.split(' ')[0]}%`) // Cari dengan kata pertama saja
+                  .limit(5);
+                
+                if (similarCustomers && similarCustomers.length > 0) {
+                  console.log(`Ditemukan ${similarCustomers.length} customer dengan nama serupa:`, 
+                    similarCustomers.map(c => c.name).join(', '));
+                }
+              } catch (fuzzyError) {
+                console.warn('Error saat mencari customer dengan nama serupa:', fuzzyError);
+              }
+            }
+          }
+        }
+        
+        // Jika customer ditemukan, buat collection baru
+        if (customerData) {
+          // Parse invoice date (gunakan tanggal hari ini jika tidak ada)
+          let invoiceDate;
+          try {
+            invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
+            // Validasi tanggal
+            if (isNaN(invoiceDate.getTime())) {
+              console.warn(`Tanggal invoice tidak valid: ${row.invoice_date}, menggunakan tanggal hari ini`);
+              invoiceDate = new Date();
+            }
+          } catch (dateError) {
+            console.warn(`Error saat parsing tanggal invoice: ${row.invoice_date}`, dateError);
+            invoiceDate = new Date();
+          }
+          
+          // Calculate due date based on payment term
+          let dueDate;
+          try {
+            // Pastikan invoiceDate valid sebelum digunakan untuk menghitung due date
+            const parsedInvoiceDate = new Date(invoiceDate);
+            if (isNaN(parsedInvoiceDate.getTime())) {
+              console.warn(`Tanggal invoice tidak valid: ${invoiceDate}, menggunakan tanggal hari ini`);
+              dueDate = new Date(); // Gunakan tanggal hari ini jika invoice date tidak valid
+            } else {
+              dueDate = new Date(parsedInvoiceDate);
+            }
             
-            // Parse invoice date
-            const invoiceDate = row.invoice_date ? new Date(row.invoice_date) : new Date();
-            
-            // Calculate due date based on payment term
-            let dueDate = new Date(invoiceDate);
             const paymentTerm = customerData?.payment_term ? parseInt(customerData.payment_term, 10) : 30; // Default to 30 days if no payment term
             dueDate.setDate(dueDate.getDate() + paymentTerm);
-            
-            collectionsToInsert.push({
-              invoice_date: invoiceDate.toISOString(),
-              invoice_number: row.invoice_number || `INV-${Date.now()}`,
-              customer_id: customerIdFormat, // Format CXXXXXXX
-              customer_uuid: customerUuid, // UUID dari customers.id
-              customer_name: row.customer_name,
-              amount: typeof row.amount === 'string' ? parseFloat(row.amount) : row.amount,
-              due_date: dueDate.toISOString(),
-              status: row.status || 'Unpaid',
-              notes: row.notes || '',
-              bank_account: row.bank_account || ''
-            });
-          } else {
-            console.warn(`Customer not found for name: ${row.customer_name}. Skipping this row.`);
+          } catch (e) {
+            console.warn('Error saat menghitung due date:', e);
+            dueDate = new Date();
+            dueDate.setDate(dueDate.getDate() + 30); // Default 30 hari dari hari ini
           }
+          
+          // Konversi amount ke number jika string
+          let amount = 0;
+          if (typeof row.amount === 'number') {
+            amount = row.amount;
+          } else if (typeof row.amount === 'string') {
+            // Bersihkan string dan konversi
+            let amountStr = row.amount.replace(/[^0-9.,]/g, '');
+            // Handle format Indonesia
+            if (amountStr.includes('.') && amountStr.includes(',')) {
+              amountStr = amountStr.replace(/\./g, '').replace(',', '.');
+            } else if (amountStr.includes(',')) {
+              amountStr = amountStr.replace(',', '.');
+            }
+            amount = parseFloat(amountStr) || 0;
+          }
+          
+          // Buat objek collection dengan data dari Excel dan database
+          const newCollection = {
+            invoice_date: invoiceDate,
+            invoice_number: row.invoice_number || `INV-${Date.now()}`,
+            customer_id: customerIdFormat,
+            customer_uuid: customerUuid,
+            customer_name: customerData.name || row.customer_name,
+            amount: amount,
+            due_date: dueDate instanceof Date && !isNaN(dueDate.getTime()) ? dueDate.toISOString() : new Date().toISOString(),
+            status: row.status || 'Unpaid',
+            notes: row.notes || '',
+            bank_account: row.bank_account || '',
+            payment_method: row.payment_method || ''
+          };
+          
+          console.log(`Menambahkan collection baru: ${newCollection.invoice_number} untuk ${newCollection.customer_name}`);
+          collectionsToInsert.push(newCollection);
+        } else {
+          // Jika customer tidak ditemukan, catat baris yang dilewati
+          console.warn(`Customer tidak ditemukan untuk baris dengan invoice ${row.invoice_number}, customer ${row.customer_name}`);
+          skippedRows.push({
+            row_number: data.indexOf(row) + 1,
+            customer_name: row.customer_name || 'Tidak ada nama',
+            invoice_number: row.invoice_number || 'Tidak ada nomor invoice',
+            reason: 'Customer tidak ditemukan di database'
+          });
         }
       }
       
+      // Tampilkan informasi tentang hasil pemrosesan
+      console.log(`Total baris yang akan diimpor: ${collectionsToInsert.length}`);
+      console.log(`Total baris yang dilewati: ${skippedRows.length}`);
+      
       if (collectionsToInsert.length === 0) {
-        throw new Error('Tidak ada data valid yang dapat diimpor. Pastikan customer_id, customer_uuid, atau customer_name valid.');
+        if (skippedRows.length > 0) {
+          // Format detail baris yang dilewati dengan lebih informatif
+          const skippedDetails = skippedRows.map(row => 
+            `Baris ${row.row_number}: ${row.invoice_number} - ${row.customer_name} (${row.reason})`
+          ).join('\n');
+          
+          // Tambahkan saran untuk mengatasi masalah
+          const errorMsg = `Tidak ada data valid yang dapat diimpor. Semua baris dilewati:\n\n${skippedDetails}\n\n` +
+                         `Saran: \n` +
+                         `1. Pastikan nama customer di Excel cocok dengan nama di database\n` +
+                         `2. Atau gunakan customer_id yang valid (format CXXXXXXX)\n` +
+                         `3. Periksa kembali format file Excel Anda`;
+          
+          throw new Error(errorMsg);
+        } else {
+          throw new Error('Tidak ada data valid yang dapat diimpor. Pastikan customer_id, customer_uuid, atau customer_name valid dan cocok dengan data di database.');
+        }
       }
       
       // Insert the collections
-      const { data: insertedData, error } = await supabase
-        .from('collections')
-        .insert(collectionsToInsert)
-        .select('*');
-      
-      if (error) throw error;
-      
-      return insertedData as Collection[];
+      console.log(`Menyimpan ${collectionsToInsert.length} collections ke database...`);
+      try {
+        const { data: insertedData, error } = await supabase
+          .from('collections')
+          .insert(collectionsToInsert)
+          .select('*');
+        
+        if (error) {
+          console.error('Error saat menyimpan collections ke database:', error);
+          throw new Error(`Gagal menyimpan data ke database: ${error.message}. Periksa apakah ada duplikasi nomor invoice.`);
+        }
+        
+        console.log(`Berhasil menyimpan ${insertedData?.length || 0} collections ke database`);
+        
+        // Jika ada baris yang dilewati, tambahkan informasi ke hasil
+        const result = insertedData as Collection[];
+        
+        // Tampilkan peringatan jika ada baris yang dilewati
+        if (skippedRows.length > 0) {
+          const skippedDetails = skippedRows.map(row => 
+            `Baris ${row.row_number}: ${row.invoice_number} - ${row.customer_name} (${row.reason})`
+          ).join('\n');
+          
+          console.warn(`${skippedRows.length} baris dilewati karena customer tidak ditemukan:`, skippedRows);
+          console.warn(`Detail baris yang dilewati:\n${skippedDetails}`);
+        }
+        
+        return result;
+      } catch (insertError: any) {
+        console.error('Error saat menyimpan collections:', insertError);
+        throw new Error(`Gagal menyimpan data: ${insertError.message}`);
+      }
     } catch (error) {
       console.error('Error importing from Excel:', error);
       throw error;
@@ -417,18 +534,35 @@ export class CollectionService {
     try {
       const sampleData = [
         {
-          'invoice_number': 'INV-001', // Kolom wajib
-          'customer_name': 'ACME Corporation', // Kolom wajib
-          'amount': 1000, // Kolom wajib
-          'invoice_date': '2023-12-01', // Kolom wajib
+          // KOLOM WAJIB - HARUS ADA
+          'invoice_number': 'INV-001', // WAJIB - Nomor invoice
+          'customer_name': 'ACME Corporation', // WAJIB - Nama pelanggan
+          'amount': 1000, // WAJIB - Jumlah tagihan
+          'invoice_date': '2023-12-01', // WAJIB - Tanggal invoice
+          
+          // KOLOM OPSIONAL - BOLEH KOSONG
           'customer_id': 'C0000001', // Opsional - Format CXXXXXXX dari customers.customer_id
           'customer_uuid': '00000000-0000-0000-0000-000000000000', // Opsional - UUID dari customers.id
-          'status': 'Unpaid', // Opsional
-          'notes': 'Catatan tambahan', // Opsional
-          'bank_account': 'BCA' // Opsional
+          'status': 'Unpaid', // Opsional - Status awal (default: Unpaid)
+          'notes': 'Catatan tambahan', // Opsional - Catatan
+          'bank_account': 'BCA', // Opsional - Informasi rekening bank
+          'payment_method': 'Cash' // Opsional - Metode pembayaran
           // due_date dihitung otomatis berdasarkan payment_term pelanggan
         }
       ];
+      
+      // Tambahkan contoh data kedua dengan format berbeda
+      sampleData.push({
+        'Nomor Invoice': 'INV-002', // Alternatif nama kolom
+        'Nama Pelanggan': 'PT Maju Jaya', // Alternatif nama kolom
+        'Jumlah': 2500000, // Alternatif nama kolom
+        'Tanggal Invoice': '2023-12-15', // Alternatif nama kolom
+        'ID Customer': 'C0000002', // Alternatif nama kolom
+        'Status': 'Unpaid',
+        'Catatan': 'Pembayaran paling lambat 30 hari',
+        'Bank': 'BRI',
+        'Metode Pembayaran': 'Transfer Bank'
+      });
       
       const worksheet = XLSX.utils.json_to_sheet(sampleData);
       const workbook = XLSX.utils.book_new();
@@ -437,16 +571,23 @@ export class CollectionService {
       // Tambahkan catatan tentang kolom wajib dan perhitungan due_date
       const notes = [
         'CATATAN PENTING:',
-        '1. Kolom wajib: invoice_number, customer_name, amount, invoice_date',
-        '2. due_date akan dihitung otomatis berdasarkan payment_term pelanggan',
-        '3. Identifikasi pelanggan dapat menggunakan salah satu dari:',
+        '1. KOLOM WAJIB yang HARUS ada: invoice_number, customer_name, amount, invoice_date',
+        '   (Nama kolom bisa bervariasi, sistem akan mengenali berbagai format nama kolom)',
+        '2. Jika kolom wajib tidak ada, proses import akan gagal',
+        '3. due_date akan dihitung otomatis berdasarkan payment_term pelanggan',
+        '4. Identifikasi pelanggan dapat menggunakan salah satu dari:',
         '   - customer_id (format CXXXXXXX)',
         '   - customer_uuid (UUID dari customers.id)',
-        '   - customer_name (akan dicocokkan dengan nama pelanggan di database)'
+        '   - customer_name (akan dicocokkan dengan nama pelanggan di database)',
+        '5. Format nama kolom yang dikenali:',
+        '   - Nomor Invoice: invoice_number, Invoice Number, InvoiceNumber, Nomor Invoice, No Invoice, No. Invoice, No Faktur, dll',
+        '   - Nama Pelanggan: customer_name, Customer Name, CustomerName, Nama Pelanggan, Nama Customer, Nama, dll',
+        '   - Jumlah: amount, Amount, Jumlah, Total, Nilai, Nominal, Harga, Price, dll',
+        '   - Tanggal Invoice: invoice_date, Invoice Date, InvoiceDate, Tanggal Invoice, Tgl Invoice, dll'
       ];
       
       for (let i = 0; i < notes.length; i++) {
-        XLSX.utils.sheet_add_aoa(worksheet, [[notes[i]]], { origin: `A${i+3}` });
+        XLSX.utils.sheet_add_aoa(worksheet, [[notes[i]]], { origin: `A${i+5}` });
       }
       
       const wbout = XLSX.write(workbook, { bookType: 'xlsx', type: 'binary' });
@@ -479,57 +620,205 @@ export class CollectionService {
           const firstSheet = workbook.SheetNames[0];
           const worksheet = workbook.Sheets[firstSheet];
           
-          const jsonData = XLSX.utils.sheet_to_json(worksheet) as Record<string, any>[];
+          const jsonData = XLSX.utils.sheet_to_json(worksheet, { defval: '' }) as Record<string, any>[];
           
           if (jsonData.length === 0) {
             reject(new Error('File tidak memiliki data'));
             return;
           }
           
-          // Validasi kolom yang diperlukan
-          const firstRow = jsonData[0];
-          const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
-          const alternativeColumns = {
-            'invoice_number': ['Invoice Number', 'InvoiceNumber'],
-            'customer_name': ['Customer Name', 'CustomerName'],
-            'amount': ['Amount']
+          // Definisi kolom yang diperlukan dan alternatifnya (lebih fleksibel)
+          const columnMappings = {
+            'invoice_number': ['invoice_number', 'Invoice Number', 'InvoiceNumber', 'Nomor Invoice', 'No Invoice', 'No. Invoice', 'No Faktur', 'Nomor Faktur', 'Invoice', 'Faktur', 'No'],
+            'customer_name': ['customer_name', 'Customer Name', 'CustomerName', 'Nama Pelanggan', 'Nama Customer', 'Nama', 'Customer', 'Pelanggan', 'Client', 'Nama Client'],
+            'amount': ['amount', 'Amount', 'Jumlah', 'Total', 'Nilai', 'Nominal', 'Harga', 'Price', 'Tagihan', 'Nilai Tagihan', 'Jumlah Tagihan'],
+            'invoice_date': ['invoice_date', 'Invoice Date', 'InvoiceDate', 'Tanggal Invoice', 'Tgl Invoice', 'Tanggal', 'Tgl', 'Date', 'Tanggal Faktur'],
+            'customer_id': ['customer_id', 'Customer ID', 'CustomerId', 'ID Pelanggan', 'ID Customer', 'Kode Pelanggan', 'Kode Customer'],
+            'customer_uuid': ['customer_uuid', 'Customer UUID', 'CustomerUuid', 'UUID Pelanggan', 'UUID', 'ID'],
+            'status': ['status', 'Status', 'Status Tagihan', 'Kondisi', 'State'],
+            'notes': ['notes', 'Notes', 'Catatan', 'Keterangan', 'Deskripsi', 'Description', 'Remark', 'Remarks'],
+            'bank_account': ['bank_account', 'Bank Account', 'BankAccount', 'Rekening Bank', 'Bank', 'Akun Bank', 'No Rekening'],
+            'payment_method': ['payment_method', 'Payment Method', 'PaymentMethod', 'Metode Pembayaran', 'Cara Bayar', 'Pembayaran', 'Payment']
           };
           
-          const missingColumns = [];
+          // Buat pemetaan dari nama kolom di file ke nama kolom yang digunakan dalam aplikasi
+          const actualColumnMapping: Record<string, string> = {};
+          const firstRow = jsonData[0];
+          const fileColumns = Object.keys(firstRow);
           
-          for (const col of requiredColumns) {
-            const alternatives = alternativeColumns[col as keyof typeof alternativeColumns] || [];
-            const hasColumn = col in firstRow || alternatives.some(alt => alt in firstRow);
-            
-            if (!hasColumn) {
-              missingColumns.push(col);
+          // Untuk debugging - tampilkan kolom yang ditemukan di file
+          console.log('Kolom yang ditemukan di file:', fileColumns);
+          
+          // Untuk setiap kolom yang ada di file, cari padanannya dalam columnMappings
+          fileColumns.forEach(fileColumn => {
+            for (const [appColumn, alternatives] of Object.entries(columnMappings)) {
+              // Cek kecocokan dengan lebih fleksibel (termasuk partial match)
+              if (alternatives.some(alt => {
+                // Exact match (case insensitive)
+                if (alt.toLowerCase() === fileColumn.toLowerCase()) return true;
+                
+                // Partial match untuk kolom dengan nama panjang
+                // Contoh: "Nomor Invoice Pelanggan" akan cocok dengan "Nomor Invoice"
+                if (fileColumn.toLowerCase().includes(alt.toLowerCase()) && alt.length > 3) return true;
+                
+                return false;
+              })) {
+                actualColumnMapping[fileColumn] = appColumn;
+                console.log(`Kolom '${fileColumn}' dipetakan ke '${appColumn}'`);
+                break;
+              }
+            }
+          });
+          
+          // Validasi kolom yang diperlukan
+          const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
+          const missingColumns = [];
+          const foundColumns = Object.values(actualColumnMapping);
+          
+          console.log('Kolom yang berhasil dipetakan:', foundColumns);
+          
+          // Periksa apakah semua kolom yang diperlukan ada dalam pemetaan
+          for (const requiredCol of requiredColumns) {
+            if (!foundColumns.includes(requiredCol)) {
+              // Cari nama alternatif untuk ditampilkan dalam pesan error
+              const alternatives = columnMappings[requiredCol];
+              missingColumns.push(alternatives[0]); // Gunakan nama kolom standar saja
             }
           }
           
           if (missingColumns.length > 0) {
-            reject(new Error(`File yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}`));
+            // Buat pesan error yang lebih informatif
+            const errorMsg = `File yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}\n\n` +
+                           `Kolom yang ditemukan: ${fileColumns.join(', ')}\n` +
+                           `Kolom yang diperlukan: invoice_number, customer_name, amount\n\n` +
+                           `Pastikan file Excel memiliki minimal kolom berikut (atau variasinya):\n` +
+                           `- Nomor Invoice / Invoice Number / No Faktur\n` +
+                           `- Nama Pelanggan / Customer Name / Nama\n` +
+                           `- Jumlah / Amount / Total / Nilai`;
+            
+            reject(new Error(errorMsg));
             return;
           }
           
           // Map the data to our CollectionImportFormat with only required fields
-          const mappedData = jsonData.map(row => {
-            // Handle different possible column names
-            // Prioritize snake_case format first to match the template
-            const invoiceDate = row.invoice_date || row['Invoice Date'] || row.InvoiceDate || new Date().toISOString();
-            const invoiceNumber = row.invoice_number || row['Invoice Number'] || row.InvoiceNumber || '';
-            const customerId = row.customer_id || row['Customer ID'] || row.CustomerId || '00000000-0000-0000-0000-000000000000';
-            const customerName = row.customer_name || row['Customer Name'] || row.CustomerName || '';
-            const amount = Number(row.amount || row.Amount || 0);
+          const mappedData = jsonData.map((row, index) => {
+            const result: Record<string, any> = {};
             
-            return {
+            // Untuk setiap kolom di file, ambil nilai dan masukkan ke kolom yang sesuai
+            Object.entries(row).forEach(([fileColumn, value]) => {
+              const appColumn = actualColumnMapping[fileColumn];
+              if (appColumn) {
+                result[appColumn] = value;
+              }
+            });
+            
+            // Log untuk debugging
+            console.log(`Baris ${index + 1} setelah pemetaan:`, result);
+            
+            // Pastikan semua kolom yang diperlukan ada dan memiliki nilai default jika tidak ada
+            // Untuk invoice_date, coba parse berbagai format tanggal
+            let invoiceDate = new Date().toISOString();
+            if (result.invoice_date) {
+              try {
+                // Coba parse tanggal dengan berbagai format
+                const dateValue = result.invoice_date;
+                let parsedDate: Date | null = null;
+                
+                if (typeof dateValue === 'string') {
+                  // Jika format Excel (serial number)
+                  if (/^\d+(\.\d+)?$/.test(dateValue)) {
+                    try {
+                      parsedDate = XLSX.SSF.parse_date_code(Number(dateValue));
+                    } catch (e) {
+                      console.warn(`Gagal parse serial number Excel: ${dateValue}`, e);
+                    }
+                  } else {
+                    // Coba parse sebagai string tanggal
+                    parsedDate = new Date(dateValue);
+                  }
+                } else if (typeof dateValue === 'number') {
+                  // Jika format Excel (serial number)
+                  try {
+                    parsedDate = XLSX.SSF.parse_date_code(dateValue);
+                  } catch (e) {
+                    console.warn(`Gagal parse serial number Excel: ${dateValue}`, e);
+                    // Coba parse sebagai timestamp
+                    parsedDate = new Date(dateValue);
+                  }
+                } else if (dateValue instanceof Date) {
+                  parsedDate = dateValue;
+                }
+                
+                // Validasi tanggal sebelum mengkonversi ke ISO string
+                if (parsedDate && !isNaN(parsedDate.getTime())) {
+                  invoiceDate = parsedDate.toISOString();
+                } else {
+                  console.warn(`Tanggal tidak valid pada baris ${index + 1}: ${dateValue}, menggunakan tanggal hari ini`);
+                  invoiceDate = new Date().toISOString();
+                }
+              } catch (e) {
+                console.warn(`Gagal parse tanggal invoice pada baris ${index + 1}:`, e);
+                // Gunakan tanggal hari ini sebagai fallback
+                invoiceDate = new Date().toISOString();
+              }
+            }
+            
+            const invoiceNumber = result.invoice_number || `INV-${Date.now()}-${index}`;
+            const customerId = result.customer_id || '';
+            const customerUuid = result.customer_uuid || '';
+            const customerName = result.customer_name || '';
+            
+            // Konversi amount ke number dengan penanganan berbagai format
+            let amount = 0;
+            if (result.amount !== undefined && result.amount !== '') {
+              try {
+                if (typeof result.amount === 'number') {
+                  // Jika sudah number, gunakan langsung
+                  amount = result.amount;
+                } else {
+                  // Jika string, bersihkan dan konversi
+                  // Hapus karakter non-numerik kecuali titik desimal dan koma
+                  let cleanedAmount = String(result.amount);
+                  
+                  // Tangani format angka Indonesia (1.234.567,89)
+                  if (cleanedAmount.includes('.') && cleanedAmount.includes(',')) {
+                    cleanedAmount = cleanedAmount.replace(/\./g, '').replace(',', '.');
+                  }
+                  // Tangani format angka dengan koma sebagai desimal (1234567,89)
+                  else if (cleanedAmount.includes(',') && !cleanedAmount.includes('.')) {
+                    cleanedAmount = cleanedAmount.replace(',', '.');
+                  }
+                  
+                  // Hapus karakter non-numerik lainnya
+                  cleanedAmount = cleanedAmount.replace(/[^0-9.]/g, '');
+                  amount = Number(cleanedAmount) || 0;
+                }
+              } catch (e) {
+                console.warn(`Gagal parse amount pada baris ${index + 1}:`, e, result.amount);
+                amount = 0;
+              }
+            }
+            
+            // Buat objek CollectionImportFormat
+            const importData = {
               invoice_date: invoiceDate,
               invoice_number: invoiceNumber,
               customer_id: customerId,
+              customer_uuid: customerUuid,
               customer_name: customerName,
               amount: amount,
-              status: 'Unpaid'
+              status: result.status || 'Unpaid',
+              notes: result.notes || '',
+              bank_account: result.bank_account || '',
+              payment_method: result.payment_method || ''
             } as CollectionImportFormat;
+            
+            console.log(`Data import baris ${index + 1}:`, importData);
+            return importData;
           });
+          
+          // Log jumlah data yang berhasil dipetakan
+          console.log(`Berhasil memetakan ${mappedData.length} baris data dari file Excel`);
           
           resolve(mappedData);
         } catch (error) {
