@@ -223,13 +223,18 @@ export class CollectionService {
       
       // Validasi kolom yang diperlukan sudah dilakukan di parseExcelFile
       // Kita hanya perlu memastikan data yang dihasilkan valid
-      const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
+      const requiredColumns = ['invoice_number', 'customer_id', 'amount', 'invoice_date'];
       const missingColumns = [];
       
       // Periksa apakah data memiliki semua kolom yang diperlukan
       if (data.length > 0) {
         const firstRow = data[0];
         for (const col of requiredColumns) {
+          // Khusus untuk customer_id, tidak perlu validasi jika customer_name ada
+          if (col === 'customer_id' && firstRow['customer_name'] !== undefined && firstRow['customer_name'] !== '') {
+            continue;
+          }
+          
           if (firstRow[col as keyof typeof firstRow] === undefined || 
               firstRow[col as keyof typeof firstRow] === '') {
             missingColumns.push(col);
@@ -238,8 +243,15 @@ export class CollectionService {
       }
       
       if (missingColumns.length > 0) {
-        const errorMsg = `File yang diimpor tidak memiliki nilai untuk kolom yang diperlukan: ${missingColumns.join(', ')}\n\n` +
-                       `Kolom wajib yang harus ada dan memiliki nilai: invoice_number, customer_name, amount.\n\n` +
+        const errorMsg = `Invalid data\n\nFile yang diimpor tidak memiliki nilai untuk kolom yang diperlukan: ${missingColumns.join(', ')}\n\n` +
+                       `Kolom wajib yang harus ada dan memiliki nilai:\n` +
+                       `- invoice_number\n` +
+                       `- customer_id (atau customer_name sebagai alternatif)\n` +
+                       `- amount\n` +
+                       `- invoice_date\n\n` +
+                       `Kolom opsional:\n` +
+                       `- customer_name (opsional jika customer_id ada)\n` +
+                       `- due_date (opsional)\n\n` +
                        `Silakan periksa kembali file Excel Anda dan pastikan kolom-kolom tersebut memiliki nilai.`;
         
         throw new Error(errorMsg);
@@ -300,7 +312,8 @@ export class CollectionService {
           }
         }
         
-        // Jika masih belum ditemukan, coba cari berdasarkan nama
+        // Jika masih belum ditemukan dan ada customer_name, coba cari berdasarkan nama
+        // Catatan: Ini adalah fallback terakhir, prioritas utama tetap pada customer_id
         if (!customerData && row.customer_name) {
           console.log(`Mencari customer dengan nama: ${row.customer_name}`);
           const { data: foundCustomer, error } = await supabase
@@ -392,12 +405,27 @@ export class CollectionService {
             amount = parseFloat(amountStr) || 0;
           }
           
+          // Validasi invoice_number tidak boleh kosong
+          if (!row.invoice_number) {
+            console.warn(`Baris dengan customer ${row.customer_name} dilewati: invoice_number kosong`);
+            skippedRows.push({
+              row_number: data.indexOf(row) + 1,
+              customer_name: row.customer_name || 'Tidak ada nama',
+              invoice_number: 'Tidak ada nomor invoice',
+              reason: 'Nomor invoice kosong'
+            });
+            continue; // Lewati baris ini
+          }
+          
+          // Pastikan invoice_number tetap sama persis dengan nilai yang diimpor
+          const invoiceNumber = row.invoice_number;
+          
           // Buat objek collection dengan data dari Excel dan database
           const newCollection = {
             invoice_date: invoiceDate,
-            invoice_number: row.invoice_number || `INV-${Date.now()}`,
+            invoice_number: invoiceNumber, // Gunakan nilai yang sudah divalidasi
             customer_id: customerIdFormat,
-            customer_uuid: customerUuid,
+            customer_uuid: customerUuid, // Tidak perlu validasi
             customer_name: customerData.name || row.customer_name,
             amount: amount,
             due_date: dueDate instanceof Date && !isNaN(dueDate.getTime()) ? dueDate.toISOString() : new Date().toISOString(),
@@ -422,10 +450,15 @@ export class CollectionService {
       }
       
       // Tampilkan informasi tentang hasil pemrosesan
-      console.log(`Total baris yang akan diimpor: ${collectionsToInsert.length}`);
+      console.log(`Total baris yang akan diimpor: ${validCollections.length}`);
       console.log(`Total baris yang dilewati: ${skippedRows.length}`);
       
-      if (collectionsToInsert.length === 0) {
+      // Log detail tentang invoice_number yang diimpor
+      validCollections.forEach(collection => {
+        console.log(`Invoice yang akan diimpor: ${collection.invoice_number} untuk ${collection.customer_name}`);
+      });
+      
+      if (validCollections.length === 0) {
         if (skippedRows.length > 0) {
           // Format detail baris yang dilewati dengan lebih informatif
           const skippedDetails = skippedRows.map(row => 
@@ -445,12 +478,27 @@ export class CollectionService {
         }
       }
       
+      // Validasi final untuk memastikan semua collection memiliki invoice_number
+      const validCollections = collectionsToInsert.filter(collection => {
+        if (!collection.invoice_number) {
+          console.warn(`Collection untuk ${collection.customer_name} dilewati: invoice_number kosong`);
+          skippedRows.push({
+            row_number: collectionsToInsert.indexOf(collection) + 1,
+            customer_name: collection.customer_name || 'Tidak ada nama',
+            invoice_number: 'Tidak ada nomor invoice',
+            reason: 'Nomor invoice kosong'
+          });
+          return false;
+        }
+        return true;
+      });
+      
       // Insert the collections
-      console.log(`Menyimpan ${collectionsToInsert.length} collections ke database...`);
+      console.log(`Menyimpan ${validCollections.length} collections ke database...`);
       try {
         const { data: insertedData, error } = await supabase
           .from('collections')
-          .insert(collectionsToInsert)
+          .insert(validCollections)
           .select('*');
         
         if (error) {
@@ -571,19 +619,19 @@ export class CollectionService {
       // Tambahkan catatan tentang kolom wajib dan perhitungan due_date
       const notes = [
         'CATATAN PENTING:',
-        '1. KOLOM WAJIB yang HARUS ada: invoice_number, customer_name, amount, invoice_date',
+        '1. KOLOM WAJIB yang HARUS ada: invoice_number, amount, invoice_date',
         '   (Nama kolom bisa bervariasi, sistem akan mengenali berbagai format nama kolom)',
         '2. Jika kolom wajib tidak ada, proses import akan gagal',
         '3. due_date akan dihitung otomatis berdasarkan payment_term pelanggan',
         '4. Identifikasi pelanggan dapat menggunakan salah satu dari:',
-        '   - customer_id (format CXXXXXXX)',
+        '   - customer_id (format CXXXXXXX) - DIUTAMAKAN',
         '   - customer_uuid (UUID dari customers.id)',
         '   - customer_name (akan dicocokkan dengan nama pelanggan di database)',
         '5. Format nama kolom yang dikenali:',
         '   - Nomor Invoice: invoice_number, Invoice Number, InvoiceNumber, Nomor Invoice, No Invoice, No. Invoice, No Faktur, dll',
-        '   - Nama Pelanggan: customer_name, Customer Name, CustomerName, Nama Pelanggan, Nama Customer, Nama, dll',
         '   - Jumlah: amount, Amount, Jumlah, Total, Nilai, Nominal, Harga, Price, dll',
-        '   - Tanggal Invoice: invoice_date, Invoice Date, InvoiceDate, Tanggal Invoice, Tgl Invoice, dll'
+        '   - Tanggal Invoice: invoice_date, Invoice Date, InvoiceDate, Tanggal Invoice, Tgl Invoice, dll',
+        '   - ID Customer: customer_id, Customer ID, CustomerId, ID Pelanggan, ID Customer, Kode Pelanggan, dll'
       ];
       
       for (let i = 0; i < notes.length; i++) {
@@ -671,7 +719,8 @@ export class CollectionService {
           });
           
           // Validasi kolom yang diperlukan
-          const requiredColumns = ['invoice_number', 'customer_name', 'amount'];
+          const requiredColumns = ['invoice_number', 'customer_id', 'amount', 'invoice_date'];
+          const optionalColumns = ['customer_name', 'due_date'];
           const missingColumns = [];
           const foundColumns = Object.values(actualColumnMapping);
           
@@ -680,6 +729,11 @@ export class CollectionService {
           // Periksa apakah semua kolom yang diperlukan ada dalam pemetaan
           for (const requiredCol of requiredColumns) {
             if (!foundColumns.includes(requiredCol)) {
+              // Khusus untuk customer_id, jika customer_name ada, maka customer_id tidak wajib
+              if (requiredCol === 'customer_id' && foundColumns.includes('customer_name')) {
+                console.log('customer_name ditemukan, customer_id tidak wajib');
+                continue;
+              }
               // Cari nama alternatif untuk ditampilkan dalam pesan error
               const alternatives = columnMappings[requiredCol];
               missingColumns.push(alternatives[0]); // Gunakan nama kolom standar saja
@@ -688,13 +742,21 @@ export class CollectionService {
           
           if (missingColumns.length > 0) {
             // Buat pesan error yang lebih informatif
-            const errorMsg = `File yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}\n\n` +
+            const errorMsg = `Invalid data\n\nFile yang diimpor tidak memiliki kolom yang diperlukan: ${missingColumns.join(', ')}\n\n` +
                            `Kolom yang ditemukan: ${fileColumns.join(', ')}\n` +
-                           `Kolom yang diperlukan: invoice_number, customer_name, amount\n\n` +
+                           `Kolom wajib yang harus ada:\n` +
+                           `- invoice_number\n` +
+                           `- customer_id (atau customer_name sebagai alternatif)\n` +
+                           `- amount\n` +
+                           `- invoice_date\n\n` +
+                           `Kolom opsional:\n` +
+                           `- customer_name (opsional jika customer_id ada)\n` +
+                           `- due_date (opsional)\n\n` +
                            `Pastikan file Excel memiliki minimal kolom berikut (atau variasinya):\n` +
                            `- Nomor Invoice / Invoice Number / No Faktur\n` +
-                           `- Nama Pelanggan / Customer Name / Nama\n` +
-                           `- Jumlah / Amount / Total / Nilai`;
+                           `- Customer ID / ID Pelanggan (atau Customer Name jika ID tidak tersedia)\n` +
+                           `- Jumlah / Amount / Total / Nilai\n` +
+                           `- Tanggal Invoice / Invoice Date / Tgl Invoice`;
             
             reject(new Error(errorMsg));
             return;
@@ -763,7 +825,14 @@ export class CollectionService {
               }
             }
             
-            const invoiceNumber = result.invoice_number || `INV-${Date.now()}-${index}`;
+            // Pastikan invoice_number tetap sama dengan yang ada di Excel dan tidak boleh kosong
+          const invoiceNumber = result.invoice_number;
+          
+          // Validasi invoice_number tidak boleh kosong
+          if (!invoiceNumber) {
+            console.warn(`Baris ${index + 1} dilewati: invoice_number kosong`);
+            return null; // Baris akan difilter nanti
+          }
             const customerId = result.customer_id || '';
             const customerUuid = result.customer_uuid || '';
             const customerName = result.customer_name || '';
@@ -799,10 +868,10 @@ export class CollectionService {
               }
             }
             
-            // Buat objek CollectionImportFormat
+            // Buat objek CollectionImportFormat dengan invoice_number yang tidak diubah
             const importData = {
               invoice_date: invoiceDate,
-              invoice_number: invoiceNumber,
+              invoice_number: invoiceNumber, // Nilai asli dari Excel yang sudah divalidasi tidak kosong
               customer_id: customerId,
               customer_uuid: customerUuid,
               customer_name: customerName,
@@ -820,7 +889,11 @@ export class CollectionService {
           // Log jumlah data yang berhasil dipetakan
           console.log(`Berhasil memetakan ${mappedData.length} baris data dari file Excel`);
           
-          resolve(mappedData);
+          // Filter baris yang memiliki invoice_number kosong
+          const validData = mappedData.filter(item => item !== null);
+          console.log(`${mappedData.length - validData.length} baris dilewati karena invoice_number kosong`);
+          
+          resolve(validData);
         } catch (error) {
           reject(error);
         }
