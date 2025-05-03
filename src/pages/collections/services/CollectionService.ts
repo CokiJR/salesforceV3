@@ -449,6 +449,21 @@ export class CollectionService {
         }
       }
       
+      // Validasi final untuk memastikan semua collection memiliki invoice_number
+      const validCollections = collectionsToInsert.filter(collection => {
+        if (!collection.invoice_number) {
+          console.warn(`Collection untuk ${collection.customer_name} dilewati: invoice_number kosong`);
+          skippedRows.push({
+            row_number: collectionsToInsert.indexOf(collection) + 1,
+            customer_name: collection.customer_name || 'Tidak ada nama',
+            invoice_number: 'Tidak ada nomor invoice',
+            reason: 'Nomor invoice kosong'
+          });
+          return false;
+        }
+        return true;
+      });
+      
       // Tampilkan informasi tentang hasil pemrosesan
       console.log(`Total baris yang akan diimpor: ${validCollections.length}`);
       console.log(`Total baris yang dilewati: ${skippedRows.length}`);
@@ -477,21 +492,6 @@ export class CollectionService {
           throw new Error('Tidak ada data valid yang dapat diimpor. Pastikan customer_id, customer_uuid, atau customer_name valid dan cocok dengan data di database.');
         }
       }
-      
-      // Validasi final untuk memastikan semua collection memiliki invoice_number
-      const validCollections = collectionsToInsert.filter(collection => {
-        if (!collection.invoice_number) {
-          console.warn(`Collection untuk ${collection.customer_name} dilewati: invoice_number kosong`);
-          skippedRows.push({
-            row_number: collectionsToInsert.indexOf(collection) + 1,
-            customer_name: collection.customer_name || 'Tidak ada nama',
-            invoice_number: 'Tidak ada nomor invoice',
-            reason: 'Nomor invoice kosong'
-          });
-          return false;
-        }
-        return true;
-      });
       
       // Insert the collections
       console.log(`Menyimpan ${validCollections.length} collections ke database...`);
