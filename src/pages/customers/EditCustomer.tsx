@@ -11,11 +11,15 @@ import {
   Mail,
   Phone,
   MapPin,
+  Users,
 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { BankAccountInputs } from "./components/BankAccountInputs";
+import { CustomerSalesmanService } from "./services/CustomerSalesmanService";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 
 import {
   Card,
@@ -26,7 +30,6 @@ import {
   CardFooter,
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import {
   Form,
@@ -73,6 +76,7 @@ const customerSchema = z.object({
   }),
   bank_accounts: z.array(bankAccountSchema).optional().default([]),
   payment_term: z.string().optional(),
+  salesman_ids: z.array(z.string()).optional().default([]),
 });
 
 type CustomerFormValues = z.infer<typeof customerSchema>;
@@ -88,6 +92,9 @@ const EditCustomer = () => {
     { payterm_code: string; description: string }[]
   >([]);
   const [isLoadingPayterms, setIsLoadingPayterms] = useState(false);
+  const [salesmen, setSalesmen] = useState<{ id: string; full_name: string }[]>([]);
+  const [isLoadingSalesmen, setIsLoadingSalesmen] = useState(false);
+  const [customerSalesmenIds, setCustomerSalesmenIds] = useState<string[]>([]);
   const { toast } = useToast();
 
   const form = useForm<CustomerFormValues>({
@@ -103,6 +110,7 @@ const EditCustomer = () => {
       cycle: "YYYY",
       bank_accounts: [],
       payment_term: "",
+      salesman_ids: [],
     },
   });
 
@@ -126,6 +134,40 @@ const EditCustomer = () => {
       });
     } finally {
       setIsLoadingPayterms(false);
+    }
+  };
+
+  // Fetch salesmen from database
+  const fetchSalesmen = async () => {
+    try {
+      setIsLoadingSalesmen(true);
+      const data = await CustomerSalesmanService.getSalesmen();
+      setSalesmen(data);
+    } catch (error: any) {
+      console.error("Error fetching salesmen:", error.message);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Failed to load salesmen: ${error.message}`,
+      });
+    } finally {
+      setIsLoadingSalesmen(false);
+    }
+  };
+
+  // Fetch customer's assigned salesmen
+  const fetchCustomerSalesmen = async (customerId: string) => {
+    try {
+      const salesmenIds = await CustomerSalesmanService.getCustomerSalesmen(customerId);
+      setCustomerSalesmenIds(salesmenIds);
+      form.setValue("salesman_ids", salesmenIds);
+    } catch (error: any) {
+      console.error("Error fetching customer salesmen:", error.message);
+      toast({
+        variant: "warning",
+        title: "Warning",
+        description: `Failed to load assigned salesmen: ${error.message}`,
+      });
     }
   };
 
@@ -207,6 +249,7 @@ const EditCustomer = () => {
           cycle: typedCustomer.cycle,
           payment_term: typedCustomer.payment_term || "",
           bank_accounts: [],
+          salesman_ids: [],
         });
 
         // Fetch bank accounts for this customer
@@ -214,6 +257,12 @@ const EditCustomer = () => {
 
         // Fetch payment terms
         await fetchPayterms();
+        
+        // Fetch salesmen
+        await fetchSalesmen();
+        
+        // Fetch customer's assigned salesmen
+        await fetchCustomerSalesmen(typedCustomer.id);
       } catch (error: any) {
         console.error("Error fetching customer:", error.message);
         toast({
@@ -280,6 +329,18 @@ const EditCustomer = () => {
         .eq("id", customer.id);
 
       if (customerError) throw customerError;
+      
+      // Update salesman assignments
+      try {
+        await CustomerSalesmanService.assignSalesmen(customer.id, values.salesman_ids || []);
+      } catch (error: any) {
+        console.error("Error assigning salesmen:", error.message);
+        toast({
+          variant: "warning",
+          title: "Warning",
+          description: `Perubahan data customer berhasil disimpan, tetapi terjadi kesalahan saat menyimpan assignment salesman: ${error.message}`,
+        });
+      }
 
       // Handle bank accounts
       if (values.bank_accounts && values.bank_accounts.length > 0) {
@@ -690,6 +751,47 @@ const EditCustomer = () => {
               />
 
               <BankAccountInputs control={form.control} name="bank_accounts" />
+              
+              {/* Salesman Assignment */}
+              <div className="space-y-2">
+                <FormLabel>Salesman</FormLabel>
+                <div className="space-y-1">
+                  {salesmen.map((salesman) => (
+                    <div key={salesman.id} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`salesman-${salesman.id}`}
+                        checked={form.watch("salesman_ids")?.includes(salesman.id)}
+                        onCheckedChange={(checked) => {
+                          const currentValues = form.getValues("salesman_ids") || [];
+                          const newValues = checked
+                            ? [...currentValues, salesman.id]
+                            : currentValues.filter((id) => id !== salesman.id);
+                          form.setValue("salesman_ids", newValues, { shouldValidate: true });
+                        }}
+                        disabled={isLoadingSalesmen}
+                      />
+                      <Label
+                        htmlFor={`salesman-${salesman.id}`}
+                        className="text-sm font-normal"
+                      >
+                        {salesman.full_name}
+                      </Label>
+                    </div>
+                  ))}
+                  {isLoadingSalesmen && (
+                    <div className="flex items-center space-x-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span className="text-sm text-muted-foreground">Memuat data salesman...</span>
+                    </div>
+                  )}
+                  {!isLoadingSalesmen && salesmen.length === 0 && (
+                    <p className="text-sm text-muted-foreground">Tidak ada salesman yang tersedia</p>
+                  )}
+                </div>
+                <FormDescription>
+                  Pilih salesman yang akan ditugaskan ke customer ini
+                </FormDescription>
+              </div>
             </CardContent>
             <CardFooter className="justify-between">
               <Button
