@@ -146,6 +146,16 @@ const App = () => {
                         {React.createElement(React.lazy(() => import("@/pages/pricing/AddSpecialPricing")))}
                       </Suspense>
                     } />
+                    <Route path="pricing/edit/:id" element={
+                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+                        {React.createElement(React.lazy(() => import("@/pages/pricing/EditPricing")))}
+                      </Suspense>
+                    } />
+                    <Route path="pricing/edit-special/:id" element={
+                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+                        {React.createElement(React.lazy(() => import("@/pages/pricing/EditSpecialPricing")))}
+                      </Suspense>
+                    } />
 
                     <Route path="transactions" element={<Transactions />} />
                     <Route
