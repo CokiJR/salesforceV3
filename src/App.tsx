@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -136,6 +136,16 @@ const App = () => {
                     <Route path="inventory/add" element={<AddInventory />} />
 
                     <Route path="pricing" element={<Pricing />} />
+                    <Route path="pricing/add" element={
+                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+                        {React.createElement(React.lazy(() => import("@/pages/pricing/AddPricing")))}
+                      </Suspense>
+                    } />
+                    <Route path="pricing/add-special" element={
+                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+                        {React.createElement(React.lazy(() => import("@/pages/pricing/AddSpecialPricing")))}
+                      </Suspense>
+                    } />
 
                     <Route path="transactions" element={<Transactions />} />
                     <Route
