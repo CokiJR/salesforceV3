@@ -122,6 +122,16 @@ interface AppSidebarProps {
 }
 
 function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
+  const [openMenus, setOpenMenus] = useState<string[]>([]);
+  
+  const toggleMenu = (menuId: string) => {
+    setOpenMenus(prev => 
+      prev.includes(menuId) 
+        ? prev.filter(id => id !== menuId) 
+        : [...prev, menuId]
+    );
+  };
+  
   return (
     <Sidebar className="border-r">
       <SidebarHeader className="flex h-14 items-center border-b px-6">
@@ -150,12 +160,15 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
               
               {/* Sales - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
-                <SidebarMenuButton className="flex items-center gap-2">
+                <SidebarMenuButton 
+                  className="flex items-center gap-2" 
+                  onClick={() => toggleMenu('sales')}
+                >
                   <Users className="h-5 w-5" />
                   <span>Sales</span>
-                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${openMenus.includes('sales') ? 'transform rotate-180' : ''}`} />
                 </SidebarMenuButton>
-                <SidebarMenuSub>
+                <SidebarMenuSub className={`overflow-hidden transition-all duration-300 ${openMenus.includes('sales') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/customers">
@@ -185,12 +198,15 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
               
               {/* Inventory - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
-                <SidebarMenuButton className="flex items-center gap-2">
+                <SidebarMenuButton 
+                  className="flex items-center gap-2"
+                  onClick={() => toggleMenu('inventory')}
+                >
                   <Package className="h-5 w-5" />
                   <span>Inventory</span>
-                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${openMenus.includes('inventory') ? 'transform rotate-180' : ''}`} />
                 </SidebarMenuButton>
-                <SidebarMenuSub>
+                <SidebarMenuSub className={`overflow-hidden transition-all duration-300 ${openMenus.includes('inventory') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/products">
@@ -228,12 +244,15 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
               
               {/* Finance - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
-                <SidebarMenuButton className="flex items-center gap-2">
+                <SidebarMenuButton 
+                  className="flex items-center gap-2"
+                  onClick={() => toggleMenu('finance')}
+                >
                   <Receipt className="h-5 w-5" />
                   <span>Finance</span>
-                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${openMenus.includes('finance') ? 'transform rotate-180' : ''}`} />
                 </SidebarMenuButton>
-                <SidebarMenuSub>
+                <SidebarMenuSub className={`overflow-hidden transition-all duration-300 ${openMenus.includes('finance') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/collections">
