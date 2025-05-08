@@ -12,11 +12,15 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
+  SidebarMenuSub,
+  SidebarMenuSubButton,
+  SidebarMenuSubItem,
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar";
 import {
   BarChart3,
+  ChevronDown,
   Home,
   Package,
   Users,
@@ -134,6 +138,7 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
           <SidebarGroupLabel>Navigation</SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
+              {/* Dashboard - Menu Utama */}
               <SidebarMenuItem>
                 <SidebarMenuButton asChild>
                   <Link to="/dashboard" className="flex items-center gap-2">
@@ -142,86 +147,121 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                   </Link>
                 </SidebarMenuButton>
               </SidebarMenuItem>
+              
+              {/* Sales - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/customers" className="flex items-center gap-2">
-                    <Users className="h-5 w-5" />
-                    <span>Customers</span>
-                  </Link>
+                <SidebarMenuButton className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  <span>Sales</span>
+                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
                 </SidebarMenuButton>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/customers">
+                        <Users className="h-4 w-4" />
+                        <span>Customers</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/orders">
+                        <ShoppingCart className="h-4 w-4" />
+                        <span>Orders</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/routes">
+                        <Map className="h-4 w-4" />
+                        <span>Routes</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
               </SidebarMenuItem>
+              
+              {/* Inventory - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/products" className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    <span>Products</span>
-                  </Link>
+                <SidebarMenuButton className="flex items-center gap-2">
+                  <Package className="h-5 w-5" />
+                  <span>Inventory</span>
+                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
                 </SidebarMenuButton>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/products">
+                        <Package className="h-4 w-4" />
+                        <span>Products</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/warehouses">
+                        <Warehouse className="h-4 w-4" />
+                        <span>Warehouses</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/inventory">
+                        <Package className="h-4 w-4" />
+                        <span>Inventory</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/pricing">
+                        <DollarSign className="h-4 w-4" />
+                        <span>Pricing</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
               </SidebarMenuItem>
+              
+              {/* Finance - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/warehouses" className="flex items-center gap-2">
-                    <Warehouse className="h-5 w-5" />
-                    <span>Warehouses</span>
-                  </Link>
+                <SidebarMenuButton className="flex items-center gap-2">
+                  <Receipt className="h-5 w-5" />
+                  <span>Finance</span>
+                  <ChevronDown className="ml-auto h-4 w-4 shrink-0 opacity-50" />
                 </SidebarMenuButton>
+                <SidebarMenuSub>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/collections">
+                        <Receipt className="h-4 w-4" />
+                        <span>Collections</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/giro">
+                        <CreditCard className="h-4 w-4" />
+                        <span>Giro</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/transactions">
+                        <CreditCard className="h-4 w-4" />
+                        <span>Transactions</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
               </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/inventory" className="flex items-center gap-2">
-                    <Package className="h-5 w-5" />
-                    <span>Inventory</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/pricing" className="flex items-center gap-2">
-                    <DollarSign className="h-5 w-5" />
-                    <span>Pricing</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/orders" className="flex items-center gap-2">
-                    <ShoppingCart className="h-5 w-5" />
-                    <span>Orders</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/collections" className="flex items-center gap-2">
-                    <Receipt className="h-5 w-5" />
-                    <span>Collections</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/giro" className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    <span>Giro</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/transactions" className="flex items-center gap-2">
-                    <CreditCard className="h-5 w-5" />
-                    <span>Transactions</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-              <SidebarMenuItem>
-                <SidebarMenuButton asChild>
-                  <Link to="/dashboard/routes" className="flex items-center gap-2">
-                    <Map className="h-5 w-5" />
-                    <span>Routes</span>
-                  </Link>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
+              
+              {/* Admin - Menu Utama */}
               {user?.role === "admin" && (
                 <SidebarMenuItem>
                   <SidebarMenuButton asChild>
