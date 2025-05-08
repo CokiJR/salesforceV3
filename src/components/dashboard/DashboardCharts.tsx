@@ -40,7 +40,7 @@ interface DashboardChartsProps {
   onRefresh?: () => void;
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#82ca9d'];
+const COLORS = ['#5c9178', '#7da992', '#9cbfad', '#e54f75', '#f07a96', '#f5a8ba'];
 
 const DashboardCharts: React.FC<DashboardChartsProps> = ({ onRefresh }) => {
   const [activeTab, setActiveTab] = useState('sales');

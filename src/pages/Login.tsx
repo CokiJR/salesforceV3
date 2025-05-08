@@ -91,7 +91,7 @@ const Login = () => {
                   <div className="space-y-2">
                     <div className="flex items-center justify-between">
                       <Label htmlFor="password">Password</Label>
-                      <a href="#" className="text-xs text-sales-600 hover:text-sales-700 transition-colors">
+                      <a href="#" className="text-xs text-sales-500 hover:text-sales-600 transition-colors">
                         Forgot password?
                       </a>
                     </div>
@@ -111,7 +111,7 @@ const Login = () => {
                   </div>
                   <Button 
                     type="submit" 
-                    className="w-full bg-sales-600 hover:bg-sales-700 transition-colors"
+                    className="w-full bg-sales-500 hover:bg-sales-600 transition-colors"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -177,7 +177,7 @@ const Login = () => {
                   </div>
                   <Button 
                     type="submit" 
-                    className="w-full bg-sales-600 hover:bg-sales-700 transition-colors"
+                    className="w-full bg-sales-500 hover:bg-sales-600 transition-colors"
                     disabled={isLoading}
                   >
                     {isLoading ? (
@@ -196,11 +196,11 @@ const Login = () => {
           <CardFooter className="flex flex-col space-y-4">
             <div className="text-center text-sm text-muted-foreground">
               <span>By continuing, you agree to our </span>
-              <a href="#" className="underline text-sales-600 hover:text-sales-700 transition-colors">
+              <a href="#" className="underline text-sales-500 hover:blush-500 transition-colors">
                 Terms of Service
               </a>
               <span> and </span>
-              <a href="#" className="underline text-sales-600 hover:text-sales-700 transition-colors">
+              <a href="#" className="underline text-sales-500 hover:blush-500 transition-colors">
                 Privacy Policy
               </a>
             </div>
