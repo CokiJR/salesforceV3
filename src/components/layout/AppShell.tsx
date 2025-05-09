@@ -35,6 +35,9 @@ import {
   Receipt,
   Warehouse,
   DollarSign,
+  ClipboardCheck,
+  ArrowRightLeft,
+  BoxesIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -236,6 +239,60 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                       <Link to="/dashboard/pricing">
                         <DollarSign className="h-4 w-4" />
                         <span>Pricing</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                </SidebarMenuSub>
+              </SidebarMenuItem>
+              
+              {/* WMS - Menu Utama dengan Sub Menu */}
+              <SidebarMenuItem>
+                <SidebarMenuButton 
+                  className="flex items-center gap-2"
+                  onClick={() => toggleMenu('wms')}
+                >
+                  <Warehouse className="h-5 w-5" />
+                  <span>WMS</span>
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${openMenus.includes('wms') ? 'transform rotate-180' : ''}`} />
+                </SidebarMenuButton>
+                <SidebarMenuSub className={`overflow-hidden transition-all duration-300 ${openMenus.includes('wms') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/wms">
+                        <BarChart3 className="h-4 w-4" />
+                        <span>Dashboard</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/wms/locations">
+                        <Warehouse className="h-4 w-4" />
+                        <span>Lokasi Penyimpanan</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/wms/movements">
+                        <ArrowRightLeft className="h-4 w-4" />
+                        <span>Perpindahan Barang</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/wms/stock-counts">
+                        <ClipboardCheck className="h-4 w-4" />
+                        <span>Stok Opname</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/wms/reports">
+                        <BarChart3 className="h-4 w-4" />
+                        <span>Laporan</span>
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
