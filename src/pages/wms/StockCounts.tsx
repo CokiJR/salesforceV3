@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { format } from "date-fns";
 import { StockCountForm } from "./components/StockCountForm";
+import { StockCountDetail } from "./components/StockCountDetail";
 
 interface StockCount {
   id: string;
@@ -43,6 +44,7 @@ export default function StockCounts() {
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
+  const [selectedCountId, setSelectedCountId] = useState<string | null>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
 
@@ -142,7 +144,12 @@ export default function StockCounts() {
   };
 
   const handleViewStockCount = (id: string) => {
-    navigate(`/dashboard/wms/stock-counts/${id}`);
+    setSelectedCountId(id);
+  };
+  
+  const handleBackFromDetail = () => {
+    setSelectedCountId(null);
+    fetchStockCounts(); // Refresh data when returning from detail view
   };
 
   const getStatusBadgeStyle = (status: string) => {
@@ -181,32 +188,36 @@ export default function StockCounts() {
 
   return (
     <div className="space-y-4 animate-fade-in">
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Stok Opname</h2>
-          <p className="text-muted-foreground">
-            Kelola dan lakukan stok opname di gudang
-          </p>
-        </div>
-        <Button onClick={handleAddStockCount}>
-          <Plus className="mr-2 h-4 w-4" />
-          Buat Stok Opname
-        </Button>
-      </div>
+      {selectedCountId ? (
+        <StockCountDetail countId={selectedCountId} onBack={handleBackFromDetail} />
+      ) : (
+        <>
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-bold tracking-tight">Stok Opname</h2>
+              <p className="text-muted-foreground">
+                Kelola dan lakukan stok opname di gudang
+              </p>
+            </div>
+            <Button onClick={handleAddStockCount}>
+              <Plus className="mr-2 h-4 w-4" />
+              Buat Stok Opname
+            </Button>
+          </div>
 
-      {showForm && (
-        <StockCountForm
-          warehouses={warehouses}
-          onSubmit={handleFormSubmit}
-          onCancel={handleFormClose}
-        />
-      )}
+          {showForm && (
+            <StockCountForm
+              warehouses={warehouses}
+              onSubmit={handleFormSubmit}
+              onCancel={handleFormClose}
+            />
+          )}
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle>Daftar Stok Opname</CardTitle>
-        </CardHeader>
-        <CardContent>
+          <Card>
+            <CardHeader className="pb-3">
+              <CardTitle>Daftar Stok Opname</CardTitle>
+            </CardHeader>
+            <CardContent>
           <div className="flex flex-col md:flex-row gap-3 mb-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
@@ -304,6 +315,8 @@ export default function StockCounts() {
           )}
         </CardContent>
       </Card>
+        </>
+      )}
     </div>
   );
 }
