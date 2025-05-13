@@ -1,14 +1,7 @@
-import { Trash2, ShoppingCart, Plus } from "lucide-react";
+import { Trash2, ShoppingCart, Plus, Search } from "lucide-react";
 import { Product } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   Table,
   TableHeader,
@@ -19,6 +12,10 @@ import {
 } from "@/components/ui/table";
 import { OrderItemWithDetails } from "../utils/orderFormUtils";
 import { formatCurrency } from "../utils/currencyUtils";
+import { useState, useEffect, useRef } from "react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { cn } from "@/lib/utils";
 
 interface OrderItemsTableProps {
   orderItems: OrderItemWithDetails[];
@@ -43,23 +40,93 @@ export function OrderItemsTable({
   setQuantity,
   totalAmount,
 }: OrderItemsTableProps) {
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filteredProducts, setFilteredProducts] = useState<Product[]>([]);
+  const [open, setOpen] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+  
+  // Filter products based on search query
+  useEffect(() => {
+    if (searchQuery.trim() === "") {
+      setFilteredProducts([]);
+      return;
+    }
+    
+    const query = searchQuery.toLowerCase();
+    const filtered = products.filter(product => 
+      product.sku.toLowerCase().includes(query) || 
+      product.name.toLowerCase().includes(query)
+    );
+    
+    setFilteredProducts(filtered);
+  }, [searchQuery, products]);
+  
+  // Handle product selection
+  const handleSelectProduct = (productId: string) => {
+    setSelectedProduct(productId);
+    setSearchQuery("");
+    setOpen(false);
+    
+    // Focus on quantity input after selecting a product
+    setTimeout(() => {
+      const quantityInput = document.querySelector('input[type="number"]') as HTMLInputElement;
+      if (quantityInput) quantityInput.focus();
+    }, 100);
+  };
+  
+  // Get selected product details
+  const selectedProductDetails = products.find(p => p.id === selectedProduct);
+  
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-medium">Order Items</h3>
       
       <div className="flex gap-2">
-        <Select value={selectedProduct} onValueChange={setSelectedProduct}>
-          <SelectTrigger className="w-[300px]">
-            <SelectValue placeholder="Select product" />
-          </SelectTrigger>
-          <SelectContent>
-            {products.map((product) => (
-              <SelectItem key={product.id} value={product.id}>
-                {product.name} ({product.unit})
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="relative w-[300px]">
+          <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+              <div className="relative w-full">
+                <Input
+                  ref={inputRef}
+                  placeholder="Cari produk berdasarkan SKU atau nama"
+                  value={searchQuery}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    if (!open) setOpen(true);
+                  }}
+                  className="w-full pr-10"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && filteredProducts.length > 0) {
+                      handleSelectProduct(filteredProducts[0].id);
+                    }
+                  }}
+                />
+                <Search className="absolute right-3 top-3 h-4 w-4 text-muted-foreground" />
+              </div>
+            </PopoverTrigger>
+            <PopoverContent className="p-0" align="start" side="bottom" sideOffset={5} style={{ width: 'var(--radix-popover-trigger-width)' }}>
+              <Command>
+                <CommandList>
+                  <CommandEmpty>Produk tidak ditemukan</CommandEmpty>
+                  <CommandGroup>
+                    {filteredProducts.slice(0, 10).map((product) => (
+                      <CommandItem
+                        key={product.id}
+                        value={product.id}
+                        onSelect={() => handleSelectProduct(product.id)}
+                      >
+                        <div className="flex flex-col">
+                          <span>{product.name}</span>
+                          <span className="text-xs text-muted-foreground">SKU: {product.sku} | {product.unit}</span>
+                        </div>
+                      </CommandItem>
+                    ))}
+                  </CommandGroup>
+                </CommandList>
+              </Command>
+            </PopoverContent>
+          </Popover>
+        </div>
         
         <Input
           type="number"
@@ -70,11 +137,22 @@ export function OrderItemsTable({
           placeholder="Qty"
         />
         
-        <Button type="button" onClick={handleAddItem} variant="secondary">
+        <Button 
+          type="button" 
+          onClick={handleAddItem} 
+          variant="secondary"
+          disabled={!selectedProduct}
+        >
           <Plus className="h-4 w-4 mr-2" />
           Add
         </Button>
       </div>
+      
+      {selectedProductDetails && (
+        <div className="text-sm text-muted-foreground mt-1">
+          Produk terpilih: <span className="font-medium">{selectedProductDetails.name}</span> ({selectedProductDetails.sku})
+        </div>
+      )}
       
       {orderItems.length > 0 ? (
         <div className="border rounded-md">
