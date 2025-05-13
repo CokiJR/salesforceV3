@@ -280,14 +280,7 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <Link to="/dashboard/wms/stock-counts">
-                        <ClipboardCheck className="h-4 w-4" />
-                        <span>Stok Opname</span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
+
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/wms/reports">

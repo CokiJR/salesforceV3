@@ -152,11 +152,7 @@ const App = () => {
                         {React.createElement(React.lazy(() => import("@/pages/wms/InventoryMovements")))} 
                       </Suspense>
                     } />
-                    <Route path="wms/stock-counts" element={
-                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
-                        {React.createElement(React.lazy(() => import("@/pages/wms/StockCounts")))} 
-                      </Suspense>
-                    } />
+
                     <Route path="wms/reports" element={
                       <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
                         {React.createElement(React.lazy(() => import("@/pages/wms/WMSReports")))} 
