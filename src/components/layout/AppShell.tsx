@@ -199,38 +199,22 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                 </SidebarMenuSub>
               </SidebarMenuItem>
               
-              {/* Inventory - Menu Utama dengan Sub Menu */}
+              {/* Data Master - Menu Utama dengan Sub Menu */}
               <SidebarMenuItem>
                 <SidebarMenuButton 
                   className="flex items-center gap-2"
-                  onClick={() => toggleMenu('inventory')}
+                  onClick={() => toggleMenu('datamaster')}
                 >
                   <Package className="h-5 w-5" />
-                  <span>Inventory</span>
-                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${openMenus.includes('inventory') ? 'transform rotate-180' : ''}`} />
+                  <span>Data Master</span>
+                  <ChevronDown className={`ml-auto h-4 w-4 shrink-0 transition-transform duration-200 ${openMenus.includes('datamaster') ? 'transform rotate-180' : ''}`} />
                 </SidebarMenuButton>
-                <SidebarMenuSub className={`overflow-hidden transition-all duration-300 ${openMenus.includes('inventory') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+                <SidebarMenuSub className={`overflow-hidden transition-all duration-300 ${openMenus.includes('datamaster') ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/products">
                         <Package className="h-4 w-4" />
                         <span>Products</span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <Link to="/dashboard/warehouses">
-                        <Warehouse className="h-4 w-4" />
-                        <span>Warehouses</span>
-                      </Link>
-                    </SidebarMenuSubButton>
-                  </SidebarMenuSubItem>
-                  <SidebarMenuSubItem>
-                    <SidebarMenuSubButton asChild>
-                      <Link to="/dashboard/inventory">
-                        <Package className="h-4 w-4" />
-                        <span>Inventory</span>
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
@@ -266,6 +250,22 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                   </SidebarMenuSubItem>
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/warehouses">
+                        <Warehouse className="h-4 w-4" />
+                        <span>Warehouses</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/inventory">
+                        <Package className="h-4 w-4" />
+                        <span>Inventory</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/wms/locations">
                         <Warehouse className="h-4 w-4" />
                         <span>Lokasi Penyimpanan</span>
@@ -280,7 +280,6 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>
-
                   <SidebarMenuSubItem>
                     <SidebarMenuSubButton asChild>
                       <Link to="/dashboard/wms/reports">
