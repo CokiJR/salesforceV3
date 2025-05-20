@@ -38,6 +38,7 @@ import {
   ClipboardCheck,
   ArrowRightLeft,
   BoxesIcon,
+  Truck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -185,6 +186,14 @@ function AppSidebar({ onSignOut, onSync, syncStatus, user }: AppSidebarProps) {
                       <Link to="/dashboard/orders">
                         <ShoppingCart className="h-4 w-4" />
                         <span>Orders</span>
+                      </Link>
+                    </SidebarMenuSubButton>
+                  </SidebarMenuSubItem>
+                  <SidebarMenuSubItem>
+                    <SidebarMenuSubButton asChild>
+                      <Link to="/dashboard/delivery">
+                        <Truck className="h-4 w-4" />
+                        <span>Delivery</span>
                       </Link>
                     </SidebarMenuSubButton>
                   </SidebarMenuSubItem>

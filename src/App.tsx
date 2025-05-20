@@ -115,6 +115,17 @@ const App = () => {
                     <Route path="orders/:id" element={<OrderDetail />} />
                     <Route path="orders/add" element={<AddOrder />} />
 
+                    <Route path="delivery" element={
+                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+                        {React.createElement(React.lazy(() => import("@/pages/delivery/Delivery")))} 
+                      </Suspense>
+                    } />
+                    <Route path="delivery/:id" element={
+                      <Suspense fallback={<div className="p-4 flex items-center justify-center"><div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div></div>}>
+                        {React.createElement(React.lazy(() => import("@/pages/delivery/InvoiceDetail")))} 
+                      </Suspense>
+                    } />
+
                     <Route path="routes" element={<RoutesPage />} />
                     <Route path="routes/:id" element={<RouteDetail />} />
                     <Route path="routes/create" element={<CreateRoute />} />
