@@ -21,6 +21,51 @@ export class DeliveryService {
     }
   }
 
+  static async getInvoicesByFilter(filter: {
+    status?: string;
+    salesman_id?: string;
+    date_from?: string;
+    date_to?: string;
+  }): Promise<Invoice[]> {
+    try {
+      let query = supabase
+        .from("invoices")
+        .select(`
+          *,
+          salesman:salesmen(*)
+        `);
+
+      // Apply filters
+      if (filter.status) {
+        query = query.eq("status", filter.status);
+      }
+
+      if (filter.salesman_id) {
+        query = query.eq("salesman_id", filter.salesman_id);
+      }
+
+      if (filter.date_from) {
+        query = query.gte("created_at", filter.date_from);
+      }
+
+      if (filter.date_to) {
+        query = query.lte("created_at", filter.date_to);
+      }
+
+      // Order by created_at
+      query = query.order("created_at", { ascending: false });
+
+      const { data, error } = await query;
+      
+      if (error) throw error;
+      
+      return data as Invoice[];
+    } catch (error) {
+      console.error("Error fetching invoices with filter:", error);
+      throw error;
+    }
+  }
+
   static async getInvoiceById(id: string): Promise<Invoice> {
     try {
       // Fetch invoice with salesman details
@@ -54,15 +99,34 @@ export class DeliveryService {
     }
   }
 
-  static async updateInvoiceStatus(id: string, status: string): Promise<void> {
+  static async updateInvoiceStatus(id: string, status: string, deliveryInfo?: {
+    driver_name?: string;
+    vehicle_number?: string;
+    delivery_date?: string;
+  }): Promise<void> {
     try {
       // Update invoice status
+      const updateData: any = { status };
+      
+      // Add delivery date if status is "Terkirim" or if provided
+      if (status === "Terkirim") {
+        updateData.delivery_date = new Date().toISOString();
+      } else if (deliveryInfo?.delivery_date) {
+        updateData.delivery_date = deliveryInfo.delivery_date;
+      }
+      
+      // Add driver and vehicle info if provided
+      if (deliveryInfo?.driver_name) {
+        updateData.driver_name = deliveryInfo.driver_name;
+      }
+      
+      if (deliveryInfo?.vehicle_number) {
+        updateData.vehicle_number = deliveryInfo.vehicle_number;
+      }
+      
       const { error } = await supabase
         .from("invoices")
-        .update({ 
-          status,
-          delivery_date: status === "Terkirim" ? new Date().toISOString() : null
-        })
+        .update(updateData)
         .eq("id", id);
       
       if (error) throw error;
@@ -84,6 +148,55 @@ export class DeliveryService {
         status: "failed",
         message: `Gagal memperbarui status: ${error}`
       });
+      
+      throw error;
+    }
+  }
+  
+  static async batchUpdateDeliveryStatus(invoiceIds: string[], deliveryInfo: {
+    status: string;
+    driver_name: string;
+    vehicle_number: string;
+    delivery_date: string;
+  }): Promise<void> {
+    try {
+      // Prepare update data
+      const updateData = {
+        status: deliveryInfo.status,
+        driver_name: deliveryInfo.driver_name,
+        vehicle_number: deliveryInfo.vehicle_number,
+        delivery_date: deliveryInfo.delivery_date
+      };
+      
+      // Update all selected invoices
+      const { error } = await supabase
+        .from("invoices")
+        .update(updateData)
+        .in("id", invoiceIds);
+      
+      if (error) throw error;
+      
+      // Log the batch update
+      for (const invoiceId of invoiceIds) {
+        await this.createDeliveryLog({
+          invoice_id: invoiceId,
+          action_type: "batch_update",
+          status: "success",
+          message: `Pengiriman massal diperbarui: ${deliveryInfo.status}`
+        });
+      }
+    } catch (error) {
+      console.error("Error batch updating delivery status:", error);
+      
+      // Log the error for each invoice
+      for (const invoiceId of invoiceIds) {
+        await this.createDeliveryLog({
+          invoice_id: invoiceId,
+          action_type: "batch_update",
+          status: "failed",
+          message: `Gagal memperbarui pengiriman massal: ${error}`
+        });
+      }
       
       throw error;
     }

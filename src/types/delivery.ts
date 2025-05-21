@@ -7,6 +7,9 @@ export interface Invoice {
   total_amount: number;
   status: string; // "Belum dikirim" | "Sedang" | "Terkirim"
   delivery_date: string | null;
+  invoice_date: string | null;
+  driver_name: string | null;
+  vehicle_number: string | null;
   created_at: string;
   salesman?: {
     id: string;
