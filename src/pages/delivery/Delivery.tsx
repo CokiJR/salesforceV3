@@ -63,7 +63,7 @@ const Delivery = () => {
     driver_name: "",
     vehicle_number: "",
     delivery_date: format(new Date(), "yyyy-MM-dd"),
-    status: "Sedang"
+    status: "Terkirim"
   });
 
   useEffect(() => {
@@ -75,7 +75,7 @@ const Delivery = () => {
       setLoading(true);
       let data;
       
-      if (filterStatus) {
+      if (filterStatus && filterStatus !== 'all') {
         data = await DeliveryService.getInvoicesByFilter({ status: filterStatus });
       } else {
         data = await DeliveryService.getInvoices();
@@ -133,7 +133,10 @@ const Delivery = () => {
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      const allIds = filteredInvoices.map(invoice => invoice.id);
+      // Hanya pilih invoice yang belum terkirim
+      const allIds = filteredInvoices
+        .filter(invoice => invoice.status !== "Terkirim")
+        .map(invoice => invoice.id);
       setSelectedInvoices(allIds);
     } else {
       setSelectedInvoices([]);
@@ -155,11 +158,16 @@ const Delivery = () => {
   
   const handleSubmitBatchDelivery = async () => {
     try {
+      // Pastikan format tanggal pengiriman sesuai dengan ISO string
+      const deliveryDate = deliveryForm.delivery_date 
+        ? new Date(deliveryForm.delivery_date).toISOString() 
+        : new Date().toISOString();
+
       await DeliveryService.batchUpdateDeliveryStatus(selectedInvoices, {
-        status: deliveryForm.status,
+        status: "Terkirim", // Status selalu Terkirim
         driver_name: deliveryForm.driver_name,
         vehicle_number: deliveryForm.vehicle_number,
-        delivery_date: deliveryForm.delivery_date
+        delivery_date: deliveryDate
       });
       
       toast({
@@ -174,7 +182,7 @@ const Delivery = () => {
         driver_name: "",
         vehicle_number: "",
         delivery_date: format(new Date(), "yyyy-MM-dd"),
-        status: "Sedang"
+        status: "Terkirim"
       });
       
       // Refresh data
@@ -201,12 +209,38 @@ const Delivery = () => {
       // Buka dialog untuk mengisi informasi pengiriman
       setSelectedInvoices([invoiceId]);
       setShowDeliveryDialog(true);
+      
+      // Reset form dengan tanggal hari ini
+      setDeliveryForm({
+        driver_name: "",
+        vehicle_number: "",
+        delivery_date: format(new Date(), "yyyy-MM-dd"),
+        status: "Terkirim"
+      });
     } catch (error: any) {
       console.error("Error preparing delivery:", error.message);
       toast({
         variant: "destructive",
         title: "Error",
         description: `Gagal mempersiapkan pengiriman: ${error.message}`,
+      });
+    }
+  };
+  
+  const handleCancelDelivery = async (invoiceId: string) => {
+    try {
+      await DeliveryService.updateInvoiceStatus(invoiceId, "Belum dikirim");
+      toast({
+        title: "Sukses",
+        description: "Pengiriman berhasil dibatalkan",
+      });
+      fetchInvoices(); // Refresh data
+    } catch (error: any) {
+      console.error("Error canceling delivery:", error.message);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: `Gagal membatalkan pengiriman: ${error.message}`,
       });
     }
   };
@@ -260,32 +294,35 @@ const Delivery = () => {
         <CardContent>
           <div className="flex items-center justify-between mb-4 gap-4">
             <div className="relative flex-1">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Cari invoice atau pelanggan..."
-                className="pl-8"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
+              <div className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    type="search"
+                    placeholder="Cari invoice atau pelanggan..."
+                    className="pl-8"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                  />
+                </div>
+                <Select value={filterStatus} onValueChange={handleFilterChange}>
+                  <SelectTrigger className="w-[180px]">
+                    <div className="flex items-center gap-2">
+                      <Filter className="h-4 w-4" />
+                      <SelectValue placeholder="Filter Status" />
+                    </div>
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Status</SelectItem>
+                    <SelectItem value="Belum dikirim">Belum dikirim</SelectItem>
+                    <SelectItem value="Sedang">Sedang dikirim</SelectItem>
+                    <SelectItem value="Terkirim">Terkirim</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             
             <div className="flex items-center gap-2">
-              <Select value={filterStatus} onValueChange={handleFilterChange}>
-                <SelectTrigger className="w-[180px]">
-                  <div className="flex items-center gap-2">
-                    <Filter className="h-4 w-4" />
-                    <SelectValue placeholder="Filter Status" />
-                  </div>
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">Semua Status</SelectItem>
-                  <SelectItem value="Belum dikirim">Belum dikirim</SelectItem>
-                  <SelectItem value="Sedang">Sedang dikirim</SelectItem>
-                  <SelectItem value="Terkirim">Terkirim</SelectItem>
-                </SelectContent>
-              </Select>
-              
               {selectedInvoices.length > 0 && (
                 <Button onClick={handleBatchDelivery} className="flex items-center gap-2">
                   <Truck className="h-4 w-4" />
@@ -409,6 +446,14 @@ const Delivery = () => {
                                 Selesaikan Pengiriman
                               </DropdownMenuItem>
                             )}
+                            {invoice.status === "Terkirim" && (
+                              <DropdownMenuItem
+                                onClick={() => handleCancelDelivery(invoice.id)}
+                              >
+                                <Truck className="mr-2 h-4 w-4" />
+                                Batal Kirim
+                              </DropdownMenuItem>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -472,18 +517,9 @@ const Delivery = () => {
               <Label htmlFor="status" className="text-right">
                 Status
               </Label>
-              <Select 
-                value={deliveryForm.status} 
-                onValueChange={(value) => handleInputChange("status", value)}
-              >
-                <SelectTrigger className="col-span-3">
-                  <SelectValue placeholder="Pilih status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="Sedang">Sedang dikirim</SelectItem>
-                  <SelectItem value="Terkirim">Terkirim</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="col-span-3">
+                <Badge variant="success">Terkirim</Badge>
+              </div>
             </div>
           </div>
           <DialogFooter>
