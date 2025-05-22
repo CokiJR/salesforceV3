@@ -31,8 +31,12 @@ export interface InvoiceItem {
 export interface DeliveryLog {
   id: string;
   invoice_id: string;
-  action_type: string; // "send_notification" | "update_status"
+  action_type: string; // "send_notification" | "update_status" | "batch_update"
   status: string; // "success" | "failed"
   message: string;
   created_at: string;
+  delivery_date?: string | null;
+  invoice_date?: string | null;
+  noken?: string | null;
+  supir?: string | null;
 }

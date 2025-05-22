@@ -105,6 +105,15 @@ export class DeliveryService {
     delivery_date?: string;
   }): Promise<void> {
     try {
+      // Get invoice data first
+      const { data: invoice, error: fetchError } = await supabase
+        .from("invoices")
+        .select("*")
+        .eq("id", id)
+        .single();
+      
+      if (fetchError) throw fetchError;
+      
       // Update invoice status
       const updateData: any = { status };
       
@@ -131,22 +140,41 @@ export class DeliveryService {
       
       if (error) throw error;
       
-      // Log the status update
+      // Update invoice_items with delivery and invoice dates
+      const { error: itemsError } = await supabase
+        .from("invoice_items")
+        .update({
+          delivery_date: updateData.delivery_date || invoice.delivery_date,
+          invoice_date: invoice.invoice_date
+        })
+        .eq("invoice_id", id);
+      
+      if (itemsError) throw itemsError;
+      
+      // Log the status update with additional info
       await this.createDeliveryLog({
         invoice_id: id,
         action_type: "update_status",
         status: "success",
-        message: `Status diperbarui ke ${status}`
+        message: `Status diperbarui ke ${status}`,
+        delivery_date: updateData.delivery_date || invoice.delivery_date,
+        invoice_date: invoice.invoice_date,
+        noken: deliveryInfo?.vehicle_number || invoice.vehicle_number,
+        supir: deliveryInfo?.driver_name || invoice.driver_name
       });
     } catch (error) {
       console.error("Error updating invoice status:", error);
       
-      // Log the error
+      // Log the error with complete information
       await this.createDeliveryLog({
         invoice_id: id,
         action_type: "update_status",
         status: "failed",
-        message: `Gagal memperbarui status: ${error}`
+        message: `Gagal memperbarui status: ${error}`,
+        delivery_date: invoice?.delivery_date || null,
+        invoice_date: invoice?.invoice_date || null,
+        noken: invoice?.vehicle_number || null,
+        supir: invoice?.driver_name || null
       });
       
       throw error;
@@ -176,25 +204,59 @@ export class DeliveryService {
       
       if (error) throw error;
       
-      // Log the batch update
+      // Update invoice_items for all selected invoices
       for (const invoiceId of invoiceIds) {
+        // Get invoice data first to get invoice_date
+        const { data: invoice, error: fetchError } = await supabase
+          .from("invoices")
+          .select("*")
+          .eq("id", invoiceId)
+          .single();
+        
+        if (fetchError) {
+          console.error(`Error fetching invoice ${invoiceId}:`, fetchError);
+          continue; // Skip to next invoice if this one fails
+        }
+        
+        // Update invoice_items with delivery and invoice dates
+        const { error: itemsError } = await supabase
+          .from("invoice_items")
+          .update({
+            delivery_date: updateData.delivery_date,
+            invoice_date: invoice.invoice_date
+          })
+          .eq("invoice_id", invoiceId);
+        
+        if (itemsError) {
+          console.error(`Error updating invoice_items for ${invoiceId}:`, itemsError);
+        }
+        
+        // Log the batch update with complete information
         await this.createDeliveryLog({
           invoice_id: invoiceId,
           action_type: "batch_update",
           status: "success",
-          message: `Pengiriman massal diperbarui: ${deliveryInfo.status}`
+          message: `Pengiriman massal diperbarui: ${deliveryInfo.status}`,
+          delivery_date: updateData.delivery_date,
+          invoice_date: invoice.invoice_date,
+          noken: deliveryInfo.vehicle_number,
+          supir: deliveryInfo.driver_name
         });
       }
     } catch (error) {
       console.error("Error batch updating delivery status:", error);
       
-      // Log the error for each invoice
+      // Log the error for each invoice with complete information
       for (const invoiceId of invoiceIds) {
         await this.createDeliveryLog({
           invoice_id: invoiceId,
           action_type: "batch_update",
           status: "failed",
-          message: `Gagal memperbarui pengiriman massal: ${error}`
+          message: `Gagal memperbarui pengiriman massal: ${error}`,
+          delivery_date: deliveryInfo.delivery_date || null,
+          invoice_date: null, // We don't have invoice_date in error case
+          noken: deliveryInfo.vehicle_number || null,
+          supir: deliveryInfo.driver_name || null
         });
       }
       

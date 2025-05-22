@@ -23,20 +23,20 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { ArrowLeft, Truck, FileCheck } from "lucide-react";
 import { format } from "date-fns";
-import { id } from "date-fns/locale";
+import { id as idLocale } from "date-fns/locale";
 import { DeliveryService } from "./services/DeliveryService";
 import { Invoice } from "@/types/delivery";
 
 const InvoiceDetail = () => {
-  const { id } = useParams<{ id: string }>();
+  const { id: invoiceId } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!id) return;
-    fetchInvoiceDetails(id);
-  }, [id]);
+    if (!invoiceId) return;
+    fetchInvoiceDetails(invoiceId);
+  }, [invoiceId]);
 
   const fetchInvoiceDetails = async (invoiceId: string) => {
     try {
@@ -146,13 +146,13 @@ const InvoiceDetail = () => {
         </Button>
 
         <div className="flex space-x-2">
-          {invoice.status === "Belum dikirim" && (
+          {invoice && invoice.status === "Belum dikirim" && (
             <Button onClick={handlePostDelivery}>
               <Truck className="mr-2 h-4 w-4" />
               Kirim Sekarang
             </Button>
           )}
-          {invoice.status === "Sedang" && (
+          {invoice && invoice.status === "Sedang" && (
             <Button onClick={handleCompleteDelivery}>
               <FileCheck className="mr-2 h-4 w-4" />
               Selesaikan Pengiriman
@@ -168,7 +168,7 @@ const InvoiceDetail = () => {
               <CardTitle>Detail Invoice</CardTitle>
               <CardDescription>Informasi invoice dan pengiriman</CardDescription>
             </div>
-            <div>{getStatusBadge(invoice.status)}</div>
+            <div>{invoice && invoice.status ? getStatusBadge(invoice.status) : null}</div>
           </div>
         </CardHeader>
         <CardContent>
@@ -176,11 +176,11 @@ const InvoiceDetail = () => {
             <div className="space-y-4">
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">No. Invoice</h3>
-                <p className="text-lg font-semibold">{invoice.invoice_number}</p>
+                <p className="text-lg font-semibold">{invoice.invoice_number || "-"}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Pelanggan</h3>
-                <p className="text-lg">{invoice.customer_name}</p>
+                <p className="text-lg">{invoice.customer_name || "-"}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Kontak</h3>
@@ -193,23 +193,25 @@ const InvoiceDetail = () => {
                 <p>
                   {invoice.delivery_date
                     ? format(new Date(invoice.delivery_date), "dd MMMM yyyy", {
-                        locale: id,
+                        locale: idLocale,
                       })
                     : "-"}
                 </p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Salesman</h3>
-                <p>{invoice.salesman?.name || "-"}</p>
+                <p>{invoice.salesman && invoice.salesman.name ? invoice.salesman.name : "-"}</p>
               </div>
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Total</h3>
                 <p className="text-lg font-semibold">
-                  {new Intl.NumberFormat("id-ID", {
-                    style: "currency",
-                    currency: "IDR",
-                    minimumFractionDigits: 0,
-                  }).format(invoice.total_amount)}
+                  {invoice.total_amount !== undefined && invoice.total_amount !== null
+                    ? new Intl.NumberFormat("id-ID", {
+                        style: "currency",
+                        currency: "IDR",
+                        minimumFractionDigits: 0,
+                      }).format(invoice.total_amount)
+                    : "-"}
                 </p>
               </div>
             </div>
@@ -230,13 +232,13 @@ const InvoiceDetail = () => {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {invoice.items && invoice.items.length > 0 ? (
+                  {invoice.items && Array.isArray(invoice.items) && invoice.items.length > 0 ? (
                     invoice.items.map((item) => (
                       <TableRow key={item.id}>
-                        <TableCell>{item.item_code}</TableCell>
-                        <TableCell>{item.item_name}</TableCell>
-                        <TableCell className="text-right">{item.quantity}</TableCell>
-                        <TableCell>{item.uom}</TableCell>
+                        <TableCell>{item.item_code || "-"}</TableCell>
+                        <TableCell>{item.item_name || "-"}</TableCell>
+                        <TableCell className="text-right">{item.quantity !== undefined ? item.quantity : "-"}</TableCell>
+                        <TableCell>{item.uom || "-"}</TableCell>
                       </TableRow>
                     ))
                   ) : (
