@@ -112,7 +112,7 @@ export class DeliveryService {
       if (status === "Terkirim") {
         updateData.delivery_date = new Date().toISOString();
       } else if (deliveryInfo?.delivery_date) {
-        updateData.delivery_date = deliveryInfo.delivery_date;
+        updateData.delivery_date = new Date(deliveryInfo.delivery_date).toISOString();
       }
       
       // Add driver and vehicle info if provided
@@ -165,7 +165,7 @@ export class DeliveryService {
         status: deliveryInfo.status,
         driver_name: deliveryInfo.driver_name,
         vehicle_number: deliveryInfo.vehicle_number,
-        delivery_date: deliveryInfo.delivery_date
+        delivery_date: new Date(deliveryInfo.delivery_date).toISOString()
       };
       
       // Update all selected invoices
