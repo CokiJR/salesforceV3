@@ -27,7 +27,8 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
         .insert({
           image_url: imageUrl,
           latitude: location.latitude,
-          longitude: location.longitude
+          longitude: location.longitude,
+          created_at: now.toISOString()
         })
         .select()
         .single();
@@ -48,9 +49,11 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
       
       if (stopError) throw stopError;
       
+      // Show appropriate message based on whether location data was available
+      const hasLocationData = !(location.latitude === 0 && location.longitude === 0);
       toast({
         title: "Photo captured successfully",
-        description: "Customer location has been marked as visited",
+        description: `Customer location has been marked as visited${hasLocationData ? " with location data" : " (without location data)"}`
       });
       
       window.location.reload();
