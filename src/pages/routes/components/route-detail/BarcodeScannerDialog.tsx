@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
-import { BarcodeScanner } from "../BarcodeScanner";
+import { CameraCapture } from "../CameraCapture";
 
 interface BarcodeScannerDialogProps {
   open: boolean;
@@ -13,27 +13,43 @@ interface BarcodeScannerDialogProps {
 }
 
 export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScannerDialogProps) {
-  const handleBarcodeScanComplete = async (barcode: string) => {
+  const handlePhotoCapture = async (imageUrl: string, location: { latitude: number; longitude: number }) => {
     onOpenChange(false);
     
     if (!stopId) return;
     
     try {
       const now = new Date();
-      const { error } = await supabase
+      
+      // First, save the photo and location to photo_logs table
+      const { data: photoLog, error: photoError } = await supabase
+        .from("photo_logs")
+        .insert({
+          image_url: imageUrl,
+          latitude: location.latitude,
+          longitude: location.longitude
+        })
+        .select()
+        .single();
+      
+      if (photoError) throw photoError;
+      
+      // Then, update the route stop
+      const { error: stopError } = await supabase
         .from("route_stops")
         .update({ 
-          barcode_scanned: true,
+          barcode_scanned: true, // Keep this for backward compatibility
           visited: true,
           visit_date: format(now, "yyyy-MM-dd"),
-          visit_time: format(now, "HH:mm:ss")
+          visit_time: format(now, "HH:mm:ss"),
+          photo_log_id: photoLog.id // Reference to the photo log
         })
         .eq("id", stopId);
       
-      if (error) throw error;
+      if (stopError) throw stopError;
       
       toast({
-        title: "Barcode scanned successfully",
+        title: "Photo captured successfully",
         description: "Customer location has been marked as visited",
       });
       
@@ -48,7 +64,7 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
     }
   };
 
-  const handleSkipScanning = async () => {
+  const handleSkipCapture = async () => {
     onOpenChange(false);
     
     if (!stopId) return;
@@ -68,7 +84,7 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
       
       toast({
         title: "Visit recorded",
-        description: "Customer location has been marked as visited without barcode scanning",
+        description: "Customer location has been marked as visited without photo",
       });
       
       window.location.reload();
@@ -86,23 +102,24 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent className="sm:max-w-md">
         <AlertDialogHeader>
-          <AlertDialogTitle>Scan Outlet Barcode</AlertDialogTitle>
+          <AlertDialogTitle>Take Photo of Outlet</AlertDialogTitle>
           <AlertDialogDescription>
-            Scan the outlet barcode to validate your visit. This will mark the location as visited.
+            Take a photo of the outlet to validate your visit. This will mark the location as visited.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4">
-          <BarcodeScanner onScan={handleBarcodeScanComplete} />
+          <CameraCapture onCapture={handlePhotoCapture} />
         </div>
         <AlertDialogFooter className="sm:justify-between">
           <AlertDialogCancel onClick={() => onOpenChange(false)}>
             Cancel
           </AlertDialogCancel>
-          <Button onClick={handleSkipScanning}>
-            Skip Scanning
+          <Button onClick={handleSkipCapture}>
+            Skip Photo
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
+
 }

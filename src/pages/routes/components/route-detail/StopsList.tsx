@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { QrCode, ShoppingBag } from "lucide-react";
+import { Camera, ShoppingBag } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { RouteStop } from "@/types";
 
@@ -149,8 +149,8 @@ export function StopsList({ stops, onScanBarcode }: StopsListProps) {
                       variant="outline"
                       onClick={() => onScanBarcode(stop.id)}
                     >
-                      <QrCode className="mr-2 h-4 w-4" />
-                      Scan Barcode
+                      <Camera className="mr-2 h-4 w-4" />
+                      Take Photo
                     </Button>
                   )}
                   
