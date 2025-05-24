@@ -82,18 +82,51 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
       
       // Request camera permission
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: "environment" }, // Use back camera if available
+        video: { 
+          facingMode: "environment", // Use back camera if available
+          width: { ideal: 1280 },
+          height: { ideal: 720 }
+        }, 
         audio: false
       });
       
-      // Save stream and start video
-      streamRef.current = stream;
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        videoRef.current.play();
-      }
+      console.log('Camera stream obtained:', stream);
       
+      // Save stream and change status to capturing first
+      streamRef.current = stream;
       setStatus("capturing");
+      
+      // Wait for next tick to ensure video element is rendered
+      setTimeout(() => {
+        if (videoRef.current && streamRef.current) {
+          console.log('Setting up video element with stream');
+          videoRef.current.srcObject = streamRef.current;
+          
+          // Wait for video to be ready before playing
+          videoRef.current.onloadedmetadata = () => {
+            console.log('Video metadata loaded, starting playback');
+            if (videoRef.current) {
+              videoRef.current.play().then(() => {
+                console.log('Video playback started successfully');
+              }).catch((error) => {
+                console.error('Error starting video playback:', error);
+                setErrorMessage('Failed to start video playback');
+                setStatus('error');
+              });
+            }
+          };
+          
+          videoRef.current.onerror = (error) => {
+            console.error('Video element error:', error);
+            setErrorMessage('Video display error');
+            setStatus('error');
+          };
+        } else {
+          console.error('Video ref or stream is null after timeout');
+          setErrorMessage('Video element not found');
+          setStatus('error');
+        }
+      }, 100);
       
       // If we still don't have location, show a warning
       if (locationStatus === "error" || !location) {
@@ -112,30 +145,61 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
 
   // Capture photo from video stream
   const capturePhoto = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    console.log('Capture photo called');
+    
+    if (!videoRef.current || !canvasRef.current) {
+      console.error('Video or canvas ref is null');
+      setErrorMessage('Camera or canvas not available');
+      setStatus('error');
+      return;
+    }
     
     const video = videoRef.current;
     const canvas = canvasRef.current;
+    
+    console.log('Video dimensions:', video.videoWidth, 'x', video.videoHeight);
+    console.log('Video ready state:', video.readyState);
+    
+    if (video.videoWidth === 0 || video.videoHeight === 0) {
+      console.error('Video has no dimensions');
+      setErrorMessage('Camera feed not ready');
+      setStatus('error');
+      return;
+    }
     
     // Set canvas dimensions to match video
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
     
+    console.log('Canvas dimensions set to:', canvas.width, 'x', canvas.height);
+    
     // Draw video frame to canvas
     const context = canvas.getContext("2d");
     if (context) {
-      context.drawImage(video, 0, 0, canvas.width, canvas.height);
-      
-      // Convert canvas to data URL (JPEG format)
-      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
-      setImageUrl(dataUrl);
-      setStatus("captured");
-      
-      // Stop the camera stream
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-        streamRef.current = null;
+      try {
+        context.drawImage(video, 0, 0, canvas.width, canvas.height);
+        
+        // Convert canvas to data URL (JPEG format)
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+        console.log('Photo captured, data URL length:', dataUrl.length);
+        
+        setImageUrl(dataUrl);
+        setStatus("captured");
+        
+        // Stop the camera stream
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
+      } catch (error) {
+        console.error('Error capturing photo:', error);
+        setErrorMessage('Failed to capture photo');
+        setStatus('error');
       }
+    } else {
+      console.error('Canvas context is null');
+      setErrorMessage('Canvas not available');
+      setStatus('error');
     }
   };
 
@@ -187,7 +251,7 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
     }
   };
 
-  // Clean up on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (streamRef.current) {
@@ -195,11 +259,27 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
       }
     };
   }, []);
+  
+  // Debug refs availability
+  useEffect(() => {
+    console.log('Component mounted, checking refs:');
+    console.log('videoRef.current:', videoRef.current);
+    console.log('canvasRef.current:', canvasRef.current);
+  }, []);
+  
+  // Debug status changes
+  useEffect(() => {
+    console.log('Status changed to:', status);
+  }, [status]);
 
   return (
     <div className="space-y-4 py-2">
       {/* Hidden canvas for capturing photos */}
-      <canvas ref={canvasRef} className="hidden"></canvas>
+      <canvas 
+        ref={canvasRef} 
+        className="hidden"
+        onLoad={() => console.log('Canvas element loaded')}
+      ></canvas>
       
       {status === "idle" && (
         <div className="flex flex-col gap-4">
@@ -243,13 +323,32 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
       
       {status === "capturing" && (
         <div className="space-y-4">
-          <div className="relative border rounded-md overflow-hidden">
+          <div className="relative border rounded-md overflow-hidden bg-black">
             <video 
-              ref={videoRef} 
-              className="w-full h-auto" 
+              ref={(el) => {
+                videoRef.current = el;
+                // If we have a stream waiting, assign it immediately
+                if (el && streamRef.current && !el.srcObject) {
+                  console.log('Assigning stream to newly rendered video element');
+                  el.srcObject = streamRef.current;
+                }
+              }}
+              className="w-full h-auto min-h-[300px] object-cover" 
               playsInline 
               autoPlay 
               muted
+              onLoadedMetadata={() => {
+                console.log('Video metadata loaded');
+                if (videoRef.current) {
+                  videoRef.current.play().catch(console.error);
+                }
+              }}
+              onCanPlay={() => {
+                console.log('Video can play');
+              }}
+              onError={(e) => {
+                console.error('Video error:', e);
+              }}
             ></video>
             
             {location && (
@@ -265,12 +364,17 @@ export function CameraCapture({ onCapture }: CameraCaptureProps) {
                 <span>Location data unavailable</span>
               </div>
             )}
-          </div>
-          
-          <div className="flex justify-center">
-            <Button onClick={capturePhoto} className="px-8">
-              Capture Photo
-            </Button>
+            
+            {/* Capture button overlay */}
+            <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2">
+              <Button 
+                onClick={capturePhoto}
+                size="lg"
+                className="bg-white text-black hover:bg-gray-100 rounded-full w-16 h-16 p-0 shadow-lg"
+              >
+                📷
+              </Button>
+            </div>
           </div>
         </div>
       )}
