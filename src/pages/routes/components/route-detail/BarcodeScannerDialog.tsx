@@ -5,6 +5,7 @@ import { toast } from "@/components/ui/use-toast";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { CameraCapture } from "../CameraCapture";
+import { uploadCompressedImage } from "@/services/imageUploadService";
 
 interface BarcodeScannerDialogProps {
   open: boolean;
@@ -21,11 +22,22 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
     try {
       const now = new Date();
       
-      // First, save the photo and location to photo_logs table
+      // Upload compressed image to Supabase Storage
+      console.log('Uploading compressed image...');
+      const uploadResult = await uploadCompressedImage(imageUrl, `photo_${stopId}_${Date.now()}.jpg`);
+      
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Failed to upload image');
+      }
+      
+      console.log(`Image compressed: ${uploadResult.originalSize}KB -> ${uploadResult.compressedSize}KB`);
+      console.log('Image uploaded to:', uploadResult.url);
+      
+      // Save the photo and location to photo_logs table with compressed image URL
       const { data: photoLog, error: photoError } = await supabase
         .from("photo_logs")
         .insert({
-          image_url: imageUrl,
+          image_url: uploadResult.url, // Use the compressed image URL from storage
           latitude: location.latitude,
           longitude: location.longitude,
           created_at: now.toISOString()
@@ -51,9 +63,13 @@ export function BarcodeScannerDialog({ open, onOpenChange, stopId }: BarcodeScan
       
       // Show appropriate message based on whether location data was available
       const hasLocationData = !(location.latitude === 0 && location.longitude === 0);
+      const compressionInfo = uploadResult.originalSize && uploadResult.compressedSize 
+        ? ` (${uploadResult.originalSize}KB -> ${uploadResult.compressedSize}KB)` 
+        : '';
+      
       toast({
         title: "Photo captured successfully",
-        description: `Customer location has been marked as visited${hasLocationData ? " with location data" : " (without location data)"}`
+        description: `Customer location has been marked as visited${hasLocationData ? " with location data" : " (without location data)"}${compressionInfo}`
       });
       
       window.location.reload();
