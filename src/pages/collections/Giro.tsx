@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { format } from 'date-fns';
-import { Loader2, Plus, Edit, Trash2, CreditCard } from 'lucide-react';
+import { Loader2, Plus, Edit, Trash2, CreditCard, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -160,7 +160,14 @@ export default function GiroPage() {
                 <TableBody>
                   {giros.map((giro) => (
                     <TableRow key={giro.id}>
-                      <TableCell className="font-medium">{giro.giro_number}</TableCell>
+                      <TableCell className="font-medium">
+                        <button
+                          onClick={() => navigate(`/dashboard/giro/${giro.id}`)}
+                          className="text-blue-600 hover:text-blue-800 hover:underline font-medium"
+                        >
+                          {giro.giro_number}
+                        </button>
+                      </TableCell>
                       <TableCell>{giro.customer?.name || giro.customer_id}</TableCell>
                       <TableCell>{giro.bank_name}</TableCell>
                       <TableCell>{formatCurrency(giro.amount)}</TableCell>
@@ -168,6 +175,14 @@ export default function GiroPage() {
                       <TableCell>{getStatusBadge(giro.status)}</TableCell>
                       <TableCell className="text-right">
                         <div className="flex justify-end gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => navigate(`/dashboard/giro/${giro.id}`)}
+                          >
+                            <Eye className="mr-1 h-3 w-3" />
+                            Detail
+                          </Button>
                           <Button
                             variant="outline"
                             size="sm"

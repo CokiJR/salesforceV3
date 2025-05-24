@@ -40,6 +40,7 @@ import AddCollection from "@/pages/collections/AddCollection";
 import AddPayment from "@/pages/collections/AddPayment";
 import Payments from "@/pages/collections/Payments";
 import Giro from "@/pages/collections/Giro";
+import GiroDetail from "@/pages/collections/GiroDetail";
 import GiroClearing from "@/pages/collections/GiroClearing";
 import AddInventory from "@/pages/inventory/AddInventory";
 
@@ -137,6 +138,7 @@ const App = () => {
                     <Route path="payments" element={<Payments />} />
                     <Route path="payments/add" element={<AddPayment />} />
                     <Route path="giro" element={<Giro />} />
+                    <Route path="giro/:id" element={<GiroDetail />} />
                     <Route path="giro/clearing/:id" element={<GiroClearing />} />
 
                     <Route path="bank-accounts" element={<BankAccounts />} />
